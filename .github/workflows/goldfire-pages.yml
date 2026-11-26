@@ -1,0 +1,60 @@
+name: GoldFire Pages
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+permissions:
+  contents: read
+concurrency:
+  group: goldfire-pages
+  cancel-in-progress: false
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Verify release and prepare static site
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 4 "https://github.com/${GITHUB_REPOSITORY}/releases/download/site-v114/goldfire-pages-v114.zip" -o "$RUNNER_TEMP/goldfire.zip"
+          echo "2f9eb3f45ae91166a7cf1366763f3248da7244bf0bf506c74728fb2349ad1305  $RUNNER_TEMP/goldfire.zip" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/goldfire"
+          unzip -q "$RUNNER_TEMP/goldfire.zip" -d "$RUNNER_TEMP/goldfire"
+          test -s "$RUNNER_TEMP/goldfire/index.html"
+          test -s "$RUNNER_TEMP/goldfire/GoldFireDragonBrowser.html"
+      - name: Save website files to the site-files branch
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin site-files >/dev/null; then
+            git fetch origin refs/heads/site-files:refs/remotes/origin/site-files
+            git switch -C site-files origin/site-files
+          else
+            git switch --orphan site-files
+          fi
+          rsync -a --delete --exclude=.git "$RUNNER_TEMP/goldfire/" ./
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish GoldFire static website version 114"
+            git push origin HEAD:refs/heads/site-files
+          fi
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: ${{ runner.temp }}/goldfire
+  deploy:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment
