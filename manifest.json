@@ -2,7 +2,7 @@
   "name": "AI Chat - 무제한 대화",
   "short_name": "AI Chat",
   "description": "제한 없는 AI 채팅 애플리케이션",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#1a1a1a",
   "theme_color": "#10a37f",
@@ -21,7 +21,10 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["productivity", "utilities"],
+  "categories": [
+    "productivity",
+    "utilities"
+  ],
   "prefer_related_applications": false,
   "shortcuts": [
     {
@@ -29,7 +32,13 @@
       "short_name": "새 채팅",
       "description": "새로운 대화 시작",
       "url": "/",
-      "icons": [{ "src": "/icon.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icon.png",
+          "sizes": "192x192"
+        }
+      ]
     }
-  ]
+  ],
+  "scope": "./"
 }
