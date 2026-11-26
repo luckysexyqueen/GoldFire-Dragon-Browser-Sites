@@ -1,8 +1,9 @@
 name: GoldFire Pages
 on:
   workflow_dispatch:
-  release:
-    types: [published]
+  push:
+    branches: [main]
+    paths: ['.github/workflows/goldfire-pages.yml', 'pages-overlay/**']
 permissions:
   contents: read
 concurrency:
@@ -24,6 +25,9 @@ jobs:
           echo "2f9eb3f45ae91166a7cf1366763f3248da7244bf0bf506c74728fb2349ad1305  $RUNNER_TEMP/goldfire.zip" | sha256sum -c -
           mkdir -p "$RUNNER_TEMP/goldfire"
           unzip -q "$RUNNER_TEMP/goldfire.zip" -d "$RUNNER_TEMP/goldfire"
+          cp -a pages-overlay/. "$RUNNER_TEMP/goldfire/"
+          python -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); d=json.loads(p.read_text()); d.update(start_url="./",scope="./"); p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+"\n")' "$RUNNER_TEMP/goldfire/manifest.json"
+          test -s "$RUNNER_TEMP/goldfire/google-custom-search-engine/index.html"
           test -s "$RUNNER_TEMP/goldfire/index.html"
           test -s "$RUNNER_TEMP/goldfire/GoldFireDragonBrowser.html"
       - name: Save website files to the site-files branch
