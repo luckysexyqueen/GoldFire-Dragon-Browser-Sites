@@ -27,6 +27,39 @@ jobs:
           unzip -q "$RUNNER_TEMP/goldfire.zip" -d "$RUNNER_TEMP/goldfire"
           rm -rf -- "$RUNNER_TEMP/goldfire/.github"
           test -s "$RUNNER_TEMP/goldfire/goldfire-version.json"
+          curl -fsSL --retry 3 "https://registry.npmjs.org/three/-/three-0.181.2.tgz" -o "$RUNNER_TEMP/three.tgz"
+          python - "$RUNNER_TEMP/goldfire" "$RUNNER_TEMP/three.tgz" <<'PY'
+          import base64
+          import hashlib
+          import pathlib
+          import re
+          import sys
+          import tarfile
+          
+          base, archive = map(pathlib.Path, sys.argv[1:3])
+          expected = 'k/CjiZ80bYss6Qs7/ex1TBlPD11whT9oKfT8oTGiHa34W4JRd1NiH/Tr1DbHWQ2/vMUypxksLnF2CfmlmM5XFQ=='
+          assert base64.b64encode(hashlib.sha512(archive.read_bytes()).digest()).decode() == expected
+          with tarfile.open(archive, 'r:gz') as t:
+              for source, dest in {
+                  'package/build/three.module.js':'gfd-three.module.js',
+                  'package/build/three.core.js':'three.core.js',
+                  'package/LICENSE':'THREE-LICENSE.txt',
+              }.items():
+                  (base/dest).write_bytes(t.extractfile(source).read())
+          browser = base/'GoldFireDragonBrowser.html'
+          original = browser.read_text()
+          # Only remove the two scripts that require a userscript environment and fail in an ordinary browser.
+          page, count = re.subn(r'^[ \t]*<script src="https://update\.(?:greasyfork\.org/scripts/506528|sleazyfork\.org/scripts/533961)/[^"]+"></script>[ \t]*\n', '', original, flags=re.M)
+          assert count == 2
+          browser.write_text(page)
+          search = base/'google-custom-search-engine/index.html'
+          page = search.read_text()
+          old = 'href="node_modules/reset.css/reset.css"'
+          assert page.count(old)==1
+          search.write_text(page.replace(old,'href="css/reset.css"'))
+          (search.parent/'css/reset.css').write_text('/* Pages local reset for the custom search home. */\nhtml,body,header,footer,main,form,p{margin:0;padding:0;border:0}header,footer,main{display:block}button,input{font:inherit}img,svg{vertical-align:middle}\n')
+          assert b'from \'./three.core.js\'' in (base/'gfd-three.module.js').read_bytes()
+          PY
           python -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); d=json.loads(p.read_text()); d.update(start_url="./",scope="./"); p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+"\n")' "$RUNNER_TEMP/goldfire/manifest.json"
           test -s "$RUNNER_TEMP/goldfire/google-custom-search-engine/index.html"
           test -s "$RUNNER_TEMP/goldfire/index.html"
