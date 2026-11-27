@@ -1,0 +1,2458 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <script defer src="./plugins/boot.js?v=120-pages1"></script>
+    <script type="module" src="./plugins/installer.mjs?v=120-pages1"></script>
+    <link rel="preload" href="./img/palace/front.jpg?v=panoramic-hall" as="image" fetchpriority="high" />
+    <link rel="preload" href="./img/palace/panorama.jpg?v=panoramic-hall" as="image" />
+    <link rel="stylesheet" href="./palace-npc.css?v=royal-human">
+    <script type="module" src="./palace-view.js?v=patrol-paths"></script>
+    <!-- Keep the standalone browser page on the same native-navigation path as index.html. -->
+    <script src="./webviews/gecko/adapter.js"></script>
+    <script src="./webviews/chromium/adapter.js"></script>
+    <script src="./webviews/custom/adapter.js"></script>
+    <script src="./inapp-browser.js"></script>
+    <script src="./google-search-patch.js"></script>
+    <script id="gfd-hard-search-router">
+      (function () {
+        "use strict";
+        window.GFDOpenSearch = async function (target) {
+          if (typeof target !== "string" || !/^https?:\/\//i.test(target)) return false;
+          try {
+            if (window.GFDInAppBrowser && typeof window.GFDInAppBrowser.open === "function") {
+              await window.GFDInAppBrowser.open(target);
+              return true;
+            }
+          } catch (error) {
+            console.warn("[GFD search] Native browser route failed:", error && error.message);
+          }
+          window.location.assign(target);
+          return true;
+        };
+      })();
+    </script>
+    <title>골드파이어드래곤브라우저 360 XR &amp; HDR (Soft - Full Bypass Edition)</title>
+
+    <!-- 메타 태그 모음 -->
+    <meta name="robots" content="index, follow" />
+    <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large" />
+    <meta name="description" content="GoldFireDragon Browser — 한국어 및 일본 Google 검색, 360° XR 영상 탐색과 HDR 인터페이스를 제공하는 웹 브라우저." />
+    <meta name="toolbar" content="true" />
+    <meta name="full-color-rgb-ultra-hdr" content="true" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover"
+    />
+    <meta name="desktop-landscape" content="width=1500, height=900, dpi=135" />
+    <meta name="desktop-portrait" content="width=900, height=1500, dpi=135" />
+    <meta name="mobile-landscape" content="width=1500, height=900, dpi=135" />
+    <meta name="mobile-portrait" content="width=900, height=1500, dpi=135" />
+    <meta name="DESKTOPMODE" content="force true" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="geo.region" content="JP" />
+    <meta name="geo.country" content="JP" />
+    <meta name="geo.placename" content="Tokyo" />
+    <meta name="HandheldFriendly" content="true" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta http-equiv="x-rim-auto-match" content="none" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="MobileOptimized" content="1359" />
+
+    <script>
+      /**
+       * 360 VR Browser & Video Player with Oculus Eye Tracking & Controller Support
+       * Supports: Oculus Quest (Eye Tracking + Controllers), Mobile (Touch), Desktop (Mouse)
+       */
+
+      (function () {
+        if (window.__VR_360_ENHANCED__) return;
+        window.__VR_360_ENHANCED__ = true;
+
+        console.log("🥽 360 VR Enhanced Patch Loading...");
+
+        // UI Update Helper
+        const updateUI = (id, text) => {
+          const el = document.getElementById(id);
+          if (el) el.innerText = text;
+        };
+
+        // Load Three.js
+        const loadThreeJS = () => {
+          return new Promise((resolve) => {
+            if (window.THREE) {
+              resolve();
+              return;
+            }
+            const script = document.createElement("script");
+            script.src = "./vendor/three-r128/three.min.js";
+            script.onload = resolve;
+            document.head.appendChild(script);
+          });
+        };
+
+        // VR State Management
+        const vrState = {
+          isActive: false,
+          mode: "desktop",
+          scene: null,
+          camera: null,
+          renderer: null,
+          sphere: null,
+          videoElement: null,
+          rotation: { lon: 0, lat: 0 },
+          isUserInteracting: false,
+          pointerStart: { x: 0, y: 0 },
+          xrSession: null,
+          eyeTracking: null,
+        };
+
+        // Detect Device Type
+        const detectDevice = () => {
+          const ua = navigator.userAgent.toLowerCase();
+          if (ua.includes("oculus") || ua.includes("quest")) {
+            vrState.mode = "oculus";
+            updateUI("device-info", "Oculus Quest");
+          } else if (ua.includes("mobile") || ua.includes("android")) {
+            vrState.mode = "mobile";
+            updateUI("device-info", "Android Mobile");
+          } else {
+            vrState.mode = "desktop";
+            updateUI("device-info", "Desktop PC");
+          }
+        };
+
+        // Initialize WebXR for Oculus
+        const initWebXR = async () => {
+          if (!navigator.xr || document.getElementById("gfd-enter-vr")) return;
+          try {
+            const supported = await navigator.xr.isSessionSupported("immersive-vr");
+            if (supported) {
+              const vrBtn = document.createElement("button");
+              vrBtn.id = "gfd-enter-vr";
+              vrBtn.innerHTML = "🥽 ENTER VR";
+              vrBtn.style.cssText = `
+                    position: fixed; bottom: 70px; right: 20px; z-index: 99999;
+                    padding: 12px 20px; background: rgba(0,0,0,0.8); color: white;
+                    border: 2px solid #00ff00; border-radius: 8px; font-weight: bold;
+                    cursor: pointer; font-size: 14px;
+                `;
+              vrBtn.onclick = async () => {
+                try {
+                  vrState.xrSession = await navigator.xr.requestSession("immersive-vr", {
+                    requiredFeatures: ["local"],
+                    optionalFeatures: ["eye-tracking", "dom-overlay"],
+                    domOverlay: { root: document.body },
+                  });
+                  vrBtn.innerHTML = "🥽 EXIT VR";
+                  vrBtn.onclick = () => vrState.xrSession.end();
+                } catch (e) {
+                  console.error(e);
+                }
+              };
+              document.body.appendChild(vrBtn);
+            }
+          } catch (e) {
+            console.warn(e);
+          }
+        };
+
+        // Initialize 360 View
+        const init360View = async () => {
+          await loadThreeJS();
+
+          vrState.scene = new THREE.Scene();
+          vrState.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+          vrState.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+          vrState.renderer.setSize(window.innerWidth, window.innerHeight);
+          vrState.renderer.setPixelRatio(window.devicePixelRatio);
+          vrState.renderer.xr.enabled = true;
+          document.body.appendChild(vrState.renderer.domElement);
+
+          Object.assign(vrState.renderer.domElement.style, {
+            position: "fixed",
+            top: "0",
+            left: "0",
+            zIndex: "99998",
+            width: "100%",
+            height: "100%",
+            display: "none",
+          });
+
+          const geometry = new THREE.SphereGeometry(500, 60, 40);
+          geometry.scale(-1, 1, 1);
+
+          vrState.videoElement = document.querySelector("video");
+          const texture = vrState.videoElement ? new THREE.VideoTexture(vrState.videoElement) : null;
+          const material = new THREE.MeshBasicMaterial({ map: texture, color: texture ? 0xffffff : 0x111111 });
+          vrState.sphere = new THREE.Mesh(geometry, material);
+          vrState.scene.add(vrState.sphere);
+
+          vrState.camera.position.set(0, 0, 0.1);
+
+          setupInputHandlers();
+          setupGyroscope();
+          animate();
+          createVRButton();
+          await initWebXR();
+        };
+
+        // Setup Gyroscope
+        const setupGyroscope = () => {
+          if (window.DeviceOrientationEvent) {
+            updateUI("gyro-status", "활성화 가능");
+            const handleOrientation = (event) => {
+              if (!vrState.isActive || vrState.isUserInteracting) return;
+              let lon, lat;
+              if (window.orientation === 90 || window.orientation === -90) {
+                lon = event.alpha + event.beta;
+                lat = window.orientation === 90 ? event.gamma : -event.gamma;
+              } else {
+                lon = event.alpha;
+                lat = event.beta - 90;
+              }
+              if (lon !== undefined && lat !== undefined) {
+                vrState.rotation.lon = lon;
+                vrState.rotation.lat = lat;
+                updateUI("gyro-status", "작동 중");
+              }
+            };
+            window.addEventListener("deviceorientation", handleOrientation, true);
+          }
+        };
+
+        // Setup Input Handlers
+        const setupInputHandlers = () => {
+          const onPointerDown = (e) => {
+            vrState.isUserInteracting = true;
+            vrState.pointerStart.x = e.clientX || e.touches?.[0]?.clientX || 0;
+            vrState.pointerStart.y = e.clientY || e.touches?.[0]?.clientY || 0;
+            if (vrState.videoElement) vrState.videoElement.play();
+          };
+          const onPointerMove = (e) => {
+            if (!vrState.isUserInteracting) return;
+            const x = e.clientX || e.touches?.[0]?.clientX || 0;
+            const y = e.clientY || e.touches?.[0]?.clientY || 0;
+            vrState.rotation.lon += (vrState.pointerStart.x - x) * 0.1;
+            vrState.rotation.lat += (y - vrState.pointerStart.y) * 0.1;
+            vrState.pointerStart.x = x;
+            vrState.pointerStart.y = y;
+          };
+          const onPointerUp = () => (vrState.isUserInteracting = false);
+
+          document.addEventListener("mousedown", onPointerDown);
+          document.addEventListener("mousemove", onPointerMove);
+          document.addEventListener("mouseup", onPointerUp);
+          document.addEventListener("touchstart", onPointerDown);
+          document.addEventListener("touchmove", onPointerMove);
+          document.addEventListener("touchend", onPointerUp);
+
+          const gamepadLoop = () => {
+            const gps = navigator.getGamepads();
+            for (let gp of gps) {
+              if (gp && gp.axes.length >= 4) {
+                vrState.rotation.lon += gp.axes[2] * 2;
+                vrState.rotation.lat += gp.axes[3] * 2;
+              }
+            }
+            requestAnimationFrame(gamepadLoop);
+          };
+          gamepadLoop();
+        };
+
+        // Create VR Toggle Button
+        const createVRButton = () => {
+          const btn = document.createElement("button");
+          btn.innerHTML = "🔄 360 VIEW";
+          btn.style.cssText = `
+            position: fixed; bottom: 20px; right: 20px; z-index: 99999;
+            padding: 12px 20px; background: rgba(0,0,0,0.8); color: white;
+            border: 2px solid #00ff00; border-radius: 8px; font-weight: bold;
+            cursor: pointer; font-size: 14px;
+        `;
+          btn.onclick = () => {
+            if (!vrState.isActive && (!vrState.videoElement?.isConnected || !vrState.videoElement.readyState)) return;
+            vrState.isActive = !vrState.isActive;
+            vrState.renderer.domElement.style.display = vrState.isActive ? "block" : "none";
+            btn.innerHTML = vrState.isActive ? "❌ EXIT 360" : "🔄 360 VIEW";
+            if (vrState.isActive && vrState.videoElement) vrState.videoElement.play();
+          };
+          document.body.appendChild(btn);
+        };
+
+        const animate = () => {
+          requestAnimationFrame(animate);
+          if (!vrState.isActive) return;
+          vrState.rotation.lat = Math.max(-85, Math.min(85, vrState.rotation.lat));
+          const phi = THREE.MathUtils.degToRad(90 - vrState.rotation.lat);
+          const theta = THREE.MathUtils.degToRad(vrState.rotation.lon);
+          const target = new THREE.Vector3(
+            500 * Math.sin(phi) * Math.cos(theta),
+            500 * Math.cos(phi),
+            500 * Math.sin(phi) * Math.sin(theta),
+          );
+          vrState.camera.lookAt(target);
+          vrState.renderer.render(vrState.scene, vrState.camera);
+        };
+
+        window.addEventListener("resize", () => {
+          if (vrState.camera && vrState.renderer) {
+            vrState.camera.aspect = window.innerWidth / window.innerHeight;
+            vrState.camera.updateProjectionMatrix();
+            vrState.renderer.setSize(window.innerWidth, window.innerHeight);
+          }
+        });
+
+        detectDevice();
+        function watchForVideo() {
+          if (document.querySelector("video")) {
+            init360View().catch(console.error);
+            return;
+          }
+          initWebXR().catch(console.error);
+          const videos = new MutationObserver(() => {
+            if (!document.querySelector("video")) return;
+            videos.disconnect();
+            init360View().catch(console.error);
+          });
+          videos.observe(document.body, { childList: true, subtree: true });
+        }
+        window.addEventListener("DOMContentLoaded", watchForVideo, { once: true });
+      })();
+    </script>
+
+    
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: #000;
+      }
+    </style>
+    <script src="./vendor/three-r128/three.min.js"></script>
+    <script>window.GoldFirePalaceThree = window.THREE;</script>
+    <style>
+      @font-face {
+        font-family: "acutehoney";
+        src: url("https://cdn.jsdelivr.net/gh/luckysexyqueen/GoldFireDragonUnCensoredBrowser/fonts/a%ED%81%90%ED%8B%B0%ED%97%88%EB%8B%88.woff")
+          format("woff");
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      *,
+      *::before,
+      *::after,
+      input,
+      button,
+      textarea,
+      select {
+        font-family: "acutehoney", sans-serif !important;
+      }
+    </style>
+
+    <!-- 360 VR Ultimate Engine v3 (2D to 360 Immersive Enhanced) -->
+    <script>
+      (function () {
+        window.GFD_VR = {
+          active: false,
+          scene: null,
+          camera: null,
+          renderer: null,
+          videoTexture: null,
+          currentVideo: null,
+          lon: 0,
+          lat: 0,
+          isInteracting: false,
+          pointerStart: { x: 0, y: 0 },
+          mode: "immersive", // 'immersive' (stretched) or 'cinema' (curved screen)
+        };
+
+        // 360 VR 엔진 초기화 및 실행
+        window.initGFDVR = function (videoEl, isNative360 = false) {
+          if (window.GFD_VR.active && window.GFD_VR.currentVideo === videoEl) return;
+
+          if (window.GFD_VR.renderer) {
+            window.GFD_VR.renderer.domElement.remove();
+          }
+
+          const container = document.createElement("div");
+          container.id = "gfd-vr-canvas-container";
+          Object.assign(container.style, {
+            position: "fixed",
+            top: "0",
+            left: "0",
+            width: "100vw",
+            height: "100vh",
+            zIndex: "9999998",
+            backgroundColor: "#000",
+            display: "block",
+          });
+          document.body.appendChild(container);
+
+          const scene = new THREE.Scene();
+          const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 2000);
+          camera.target = new THREE.Vector3(0, 0, 0);
+
+          // 일반 영상도 360도 둘러보기가 가능하도록 구체(Sphere) 지오메트리 생성
+          // 2D 영상의 경우도 구체 내부에 매핑하여 사용자가 고개를 돌려 영상을 볼 수 있게 함
+          const geometry = new THREE.SphereGeometry(500, 120, 80);
+          geometry.scale(-1, 1, 1);
+
+          const texture = new THREE.VideoTexture(videoEl);
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+
+          // 일반 영상을 360도 공간에 최적화하여 배치
+          if (!isNative360) {
+            // 일반 영상(2D)을 360도 공간에서 더 자연스럽게 보이도록 매핑 조정
+            texture.wrapS = THREE.ClampToEdgeWrapping;
+            texture.wrapT = THREE.ClampToEdgeWrapping;
+          }
+
+          const material = new THREE.MeshBasicMaterial({ map: texture });
+          const mesh = new THREE.Mesh(geometry, material);
+          scene.add(mesh);
+
+          const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+          renderer.setPixelRatio(window.devicePixelRatio);
+          renderer.setSize(window.innerWidth, window.innerHeight);
+          container.appendChild(renderer.domElement);
+
+          window.GFD_VR.scene = scene;
+          window.GFD_VR.camera = camera;
+          window.GFD_VR.renderer = renderer;
+          window.GFD_VR.currentVideo = videoEl;
+          window.GFD_VR.active = true;
+
+          // 원본 영상 숨김
+          try {
+            videoEl.style.visibility = "hidden";
+            videoEl.style.opacity = "0";
+          } catch (e) {}
+
+          // 인터랙션 제어
+          const onPointerDown = (e) => {
+            window.GFD_VR.isInteracting = true;
+            window.GFD_VR.pointerStart.x = e.clientX || e.touches?.[0]?.clientX;
+            window.GFD_VR.pointerStart.y = e.clientY || e.touches?.[0]?.clientY;
+          };
+          const onPointerMove = (e) => {
+            if (!window.GFD_VR.isInteracting) return;
+            const clientX = e.clientX || e.touches?.[0]?.clientX;
+            const clientY = e.clientY || e.touches?.[0]?.clientY;
+            window.GFD_VR.lon += (window.GFD_VR.pointerStart.x - clientX) * 0.2;
+            window.GFD_VR.lat += (clientY - window.GFD_VR.pointerStart.y) * 0.2;
+            window.GFD_VR.pointerStart.x = clientX;
+            window.GFD_VR.pointerStart.y = clientY;
+          };
+          const onPointerUp = () => (window.GFD_VR.isInteracting = false);
+
+          renderer.domElement.addEventListener("pointerdown", onPointerDown);
+          window.addEventListener("pointermove", onPointerMove);
+          window.addEventListener("pointerup", onPointerUp);
+          renderer.domElement.addEventListener("touchstart", onPointerDown);
+          window.addEventListener("touchmove", onPointerMove);
+          window.addEventListener("touchend", onPointerUp);
+
+          function animate() {
+            if (!window.GFD_VR.active) return;
+            requestAnimationFrame(animate);
+            window.GFD_VR.lat = Math.max(-85, Math.min(85, window.GFD_VR.lat));
+            const phi = THREE.MathUtils.degToRad(90 - window.GFD_VR.lat);
+            const theta = THREE.MathUtils.degToRad(window.GFD_VR.lon);
+            camera.target.x = 500 * Math.sin(phi) * Math.cos(theta);
+            camera.target.y = 500 * Math.cos(phi);
+            camera.target.z = 500 * Math.sin(phi) * Math.sin(theta);
+            camera.lookAt(camera.target);
+            renderer.render(scene, camera);
+          }
+          animate();
+
+          // 컨트롤 패널 추가
+          const controlUI = document.createElement("div");
+          Object.assign(controlUI.style, {
+            position: "fixed",
+            bottom: "20px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: "9999999",
+            display: "flex",
+            gap: "10px",
+          });
+
+          const exitBtn = document.createElement("button");
+          exitBtn.innerHTML = "❌ 일반 모드로 복귀";
+          Object.assign(exitBtn.style, {
+            padding: "12px 20px",
+            background: "rgba(220, 38, 38, 0.9)",
+            color: "white",
+            border: "none",
+            borderRadius: "30px",
+            fontWeight: "bold",
+            cursor: "pointer",
+            boxShadow: "0 4px 15px rgba(0,0,0,0.5)",
+          });
+          exitBtn.onclick = () => {
+            window.GFD_VR.active = false;
+            container.remove();
+            try {
+              videoEl.style.visibility = "visible";
+              videoEl.style.opacity = "1";
+            } catch (e) {}
+          };
+
+          const resetBtn = document.createElement("button");
+          resetBtn.innerHTML = "🎯 정면 보기";
+          Object.assign(resetBtn.style, {
+            padding: "12px 20px",
+            background: "rgba(79, 70, 229, 0.9)",
+            color: "white",
+            border: "none",
+            borderRadius: "30px",
+            fontWeight: "bold",
+            cursor: "pointer",
+            boxShadow: "0 4px 15px rgba(0,0,0,0.5)",
+          });
+          resetBtn.onclick = () => {
+            window.GFD_VR.lon = 0;
+            window.GFD_VR.lat = 0;
+          };
+
+          controlUI.appendChild(resetBtn);
+          controlUI.appendChild(exitBtn);
+          container.appendChild(controlUI);
+        };
+
+        // 실시간 모든 영상 감지 및 360도 강제 활성화 버튼 주입
+        const startVideoWatcher = () => {
+          setInterval(() => {
+            document.querySelectorAll("video").forEach((video) => {
+              if (video.dataset.gfdEnhanced) return;
+              video.dataset.gfdEnhanced = "true";
+
+              const wrapper = document.createElement("div");
+              wrapper.className = "gfd-video-wrapper";
+              Object.assign(wrapper.style, { position: "relative", display: "inline-block", width: "100%" });
+
+              video.parentNode.insertBefore(wrapper, video);
+              wrapper.appendChild(video);
+
+              const btn = document.createElement("button");
+              btn.innerHTML = '<i class="fa-solid fa-rotate"></i> 360도 둘러보기 활성화';
+              Object.assign(btn.style, {
+                position: "absolute",
+                top: "20px",
+                left: "20px",
+                zIndex: "1000",
+                padding: "10px 15px",
+                background: "linear-gradient(45deg, #a855f7, #6366f1)",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontWeight: "bold",
+                fontSize: "13px",
+                boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
+                transition: "transform 0.2s",
+              });
+              btn.onmouseover = () => (btn.style.transform = "scale(1.05)");
+              btn.onmouseout = () => (btn.style.transform = "scale(1)");
+              btn.onclick = (e) => {
+                e.preventDefault();
+                window.initGFDVR(video, false); // 일반 영상(false)으로 360도 엔진 가동
+              };
+              wrapper.appendChild(btn);
+            });
+          }, 1500);
+        };
+
+        window.convertTo360 = function (input) {
+          const video = document.createElement("video");
+          video.crossOrigin = "anonymous";
+          if (input.includes("http")) {
+            video.src = input;
+          } else {
+            window.open("https://www.google.com/search?q=" + encodeURIComponent(input) + "&tbm=vid", "_blank");
+            return;
+          }
+          video.loop = true;
+          video.play().then(() => window.initGFDVR(video, true));
+        };
+
+        startVideoWatcher();
+      })();
+    </script>
+</head>
+  <body>
+    <script>
+      let isConverted = false;
+      let scene, camera, renderer, texture, mesh;
+      let isUserInteracting = false;
+      let lon = 0,
+        lat = 0;
+      let onPointerDownLon = 0,
+        onPointerDownLat = 0;
+      let onPointerDownPointerX = 0,
+        onPointerDownPointerY = 0;
+
+      // [인터넷 영상 자동 감지 및 VR 변환 엔진]
+      const internetVideoWatcher = setInterval(() => {
+        document.querySelectorAll("video").forEach((v) => {
+          if (v.dataset.gfdInternetReady) return;
+          v.dataset.gfdInternetReady = "true";
+
+          // 영상 위에 VR 변환 버튼 주입
+          const btn = document.createElement("button");
+          btn.innerHTML = "🥽 360 VR 변환";
+          btn.style.cssText =
+            "position: absolute; z-index: 10000; padding: 8px 15px; background: rgba(168, 85, 247, 0.9); color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 12px; margin: 10px;";
+
+          // 영상의 위치에 맞게 버튼 배치
+          if (v.parentElement) {
+            v.parentElement.style.position = "relative";
+            v.parentElement.appendChild(btn);
+          } else {
+            document.body.appendChild(btn);
+          }
+
+          btn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof process360Conversion === "function") {
+              process360Conversion(v);
+            } else if (typeof initGFDVR === "function") {
+              initGFDVR(v);
+            }
+          };
+        });
+      }, 2000);
+
+      // 1. [실시간 비디오 가로채기] 재생 중인 실제 비디오 엘리먼트를 추적합니다.
+      const videoScanInterval = setInterval(() => {
+        if (isConverted) return;
+        try {
+          const targetDocument = document;
+          const activeVideos = targetDocument.querySelectorAll("video");
+
+          activeVideos.forEach((video) => {
+            if (!video.paused && video.currentTime > 0 && !isConverted) {
+              process360Conversion(video);
+            }
+          });
+        } catch (securityError) {
+          // CORS 및 도메인 보안 예외 발생 시 대기 상태 유지
+        }
+      }, 500);
+
+      // 2. 납작한 일반 평면(2D) 영상을 진짜 360도 입체 파노라마 뷰 공간으로 매핑하는 코어 엔지니어링
+      function process360Conversion(detectedVideo) {
+        isConverted = true;
+        clearInterval(videoScanInterval);
+
+        detectedVideo.style.visibility = "hidden";
+        detectedVideo.style.opacity = "0";
+
+        // Three.js 입체 공간 생성
+        scene = new THREE.Scene();
+
+        // 왜곡 없는 자연스러운 VR 환경 시야각(FOV)인 75도 설정 후 카메라 정중앙 배치
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 2000);
+        camera.target = new THREE.Vector3(0, 0, 0);
+
+        // [핵심] 일반 영상을 가상 360도 공간 구조로 확장하기 위한 고밀도 구형 지오메트리 빌드
+        const geometry = new THREE.SphereGeometry(500, 120, 80);
+        geometry.scale(-1, 1, 1); // 내부 벽면에 영상을 고르게 투사하기 위해 스케일 반전
+
+        // 사용자가 틀어놓은 실제 비디오 엘리먼트 스트림을 실시간 3D 가상 텍스처로 추출
+        texture = new THREE.VideoTexture(detectedVideo);
+
+        // 픽셀 보간법을 선형(Linear)으로 처리하여 화질 깨짐을 실시간 최소화
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+
+        // 비디오 픽셀이 파노라마 좌표계 형태로 구체 전체에 완벽히 정렬되도록 매핑 형식 지정
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+
+        // 가상 벽면에 텍스처를 적용하고 3D 매쉬 객체 생성 후 가상 세계에 띄움
+        const material = new THREE.MeshBasicMaterial({ map: texture });
+        mesh = new THREE.Mesh(geometry, material);
+        scene.add(mesh);
+
+        // 모니터 전체 해상도를 가득 채우는 하드웨어 가속 방식의 WebGL 렌더러 생성
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        // CSS 강제 제어: 원본 사이트의 복잡한 레이아웃 구조를 완벽하게 장악하여 강제 전체화면 변환
+        renderer.domElement.style.position = "fixed";
+        renderer.domElement.style.top = "0";
+        renderer.domElement.style.left = "0";
+        renderer.domElement.style.width = "100vw";
+        renderer.domElement.style.height = "100vh";
+        renderer.domElement.style.zIndex = "9999999";
+        renderer.domElement.style.backgroundColor = "#000";
+        document.body.appendChild(renderer.domElement);
+
+        // 마우스 드래그를 이용해 진짜 360도 공간처럼 사방을 자유롭게 둘러보는 인터랙션 리스너 바인딩
+        renderer.domElement.addEventListener("pointerdown", onPointerDown);
+        document.addEventListener("pointermove", onPointerMove);
+        document.addEventListener("pointerup", onPointerUp);
+        window.addEventListener("resize", onWindowResize);
+
+        // 변환 프레임 실시간 업데이트 재생 시작
+        animate();
+      }
+
+      // 3. 마우스 드래그를 입체 구형 회전 각도(Spherical Coordinates)로 변환하는 조작 로직
+      function onPointerDown(e) {
+        isUserInteracting = true;
+        onPointerDownPointerX = e.clientX;
+        onPointerDownPointerY = e.clientY;
+        onPointerDownLon = lon;
+        onPointerDownLat = lat;
+      }
+
+      function onPointerMove(e) {
+        if (isUserInteracting === true) {
+          lon = (onPointerDownPointerX - e.clientX) * 0.15 + onPointerDownLon;
+          lat = (e.clientY - onPointerDownPointerY) * 0.15 + onPointerDownLat;
+        }
+      }
+
+      function onPointerUp() {
+        isUserInteracting = false;
+      }
+
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      // 4. 실시간 가상 공간 그래픽 드로우 루프
+      function animate() {
+        requestAnimationFrame(animate);
+        update();
+      }
+
+      function update() {
+        lat = Math.max(-85, Math.min(85, lat));
+
+        const phi = THREE.MathUtils.degToRad(90 - lat);
+        const theta = THREE.MathUtils.degToRad(lon);
+
+        camera.target.x = 500 * Math.sin(phi) * Math.cos(theta);
+        camera.target.y = 500 * Math.cos(phi);
+        camera.target.z = 500 * Math.sin(phi) * Math.sin(theta);
+
+        camera.lookAt(camera.target);
+        renderer.render(scene, camera);
+      }
+    </script>
+
+    
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: #111;
+      }
+      /* 실제 인터넷 브라우저처럼 작동하는 상단 주소/검색창 UI */
+      #browser-navbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 15px;
+        background: #202124;
+        height: 60px;
+        box-sizing: border-box;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      }
+      #search-input {
+        flex: 1;
+        padding: 10px 16px;
+        border: 1px solid #3c4043;
+        border-radius: 20px;
+        background: #303134;
+        color: #fff;
+        font-size: 14px;
+        outline: none;
+      }
+      .nav-btn {
+        padding: 10px 20px;
+        background: #8ab4f8;
+        color: #202124;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 14px;
+      }
+      .nav-btn:hover {
+        background: #93bdfd;
+      }
+
+      /* 사용자가 검색한 인터넷 사이트가 뜨는 영역 */
+      #web-viewport {
+        width: 100%;
+        height: calc(100% - 60px);
+        border: none;
+        background: #fff;
+      }
+
+      /* 영상 감지 시 최상단에서 화면을 덮어버릴 3D 공간 캔버스 */
+      canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 9999999;
+        display: block;
+      }
+    </style>
+    <style>
+      @font-face {
+        font-family: "acutehoney";
+        src: url("https://cdn.jsdelivr.net/gh/luckysexyqueen/GoldFireDragonUnCensoredBrowser/fonts/a%ED%81%90%ED%8B%B0%ED%97%88%EB%8B%88.woff")
+          format("woff");
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      *,
+      *::before,
+      *::after,
+      input,
+      button,
+      textarea,
+      select {
+        font-family: "acutehoney", sans-serif !important;
+      }
+    </style>
+
+    <!-- 무로그인 & 연령 인증 자동 우회 초기화 패치 -->
+    <script>
+      (function () {
+        try {
+          // 로컬 스토리지 및 세션 스토리지 우회 플래그 설정
+          localStorage.setItem("isLoggedIn", "true");
+          localStorage.setItem("user_role", "admin");
+          localStorage.setItem("adult_verified", "true");
+          localStorage.setItem("age_gate_passed", "true");
+          sessionStorage.setItem("authenticated", "true");
+          sessionStorage.setItem("bypass_auth", "true");
+
+          // 로그인 및 성인인증 쿠키 강제 세팅
+          document.cookie = "age_verified=1; path=/; max-age=31536000";
+          document.cookie = "adult_auth=true; path=/; max-age=31536000";
+          document.cookie = "auth_token=guest_bypass_token_gfd; path=/; max-age=31536000";
+          document.cookie = "login_status=active; path=/; max-age=31536000";
+        } catch (e) {
+          console.warn("Auth Bypass Init Warning:", e);
+        }
+      })();
+    </script>
+
+    <!-- HDR 및 외부 스크립트 -->
+    <script src="https://cdn.jsdelivr.net/gh/luckysexysuccubusqueen135age/GFD@gh-pages/hdr.js"></script>
+
+    <!-- A-Frame (360 VR 라이브러리) 및 조이스틱 NippleJS -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+
+    
+    
+    <!-- Tampermonkey 우회 유저 스크립트 모음 -->
+
+    <!-- 외부 스타일 및 아이콘 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/luckysexysuccubusqueen135age/GoldFireDragonFullUnCensoredGoogleProxyInAndroidWebBrowserAppHomePage@refs/heads/codespace-super-robot-xrwp9jp647v62v74v/fonts/gamefont.css"
+    />
+
+    <script>
+      // 글로벌 조이스틱 데이터 정의
+      window.globalJoystickData = { x: 0, y: 0, isMoving: false };
+
+      // Rig를 이용한 이동 컴포넌트
+      AFRAME.registerComponent("joystick-controls", {
+        schema: { speed: { default: 0.15 } },
+        tick: function (time, timeDelta) {
+          if (!window.globalJoystickData || !window.globalJoystickData.isMoving) return;
+
+          const el = this.el;
+          const deltaSpeed = this.data.speed * (Math.min(timeDelta, 50) / 16.6);
+
+          const inputX = window.globalJoystickData.x;
+          const inputY = window.globalJoystickData.y;
+
+          const camera = document.getElementById("main-camera");
+          if (!camera) return;
+
+          const rotationY = camera.getAttribute("rotation").y;
+          const rad = THREE.MathUtils.degToRad(rotationY);
+
+          const moveX = -Math.sin(rad) * inputY + Math.cos(rad) * inputX;
+          const moveZ = -Math.cos(rad) * inputY - Math.sin(rad) * inputX;
+
+          el.object3D.position.x += moveX * deltaSpeed;
+          el.object3D.position.z += moveZ * deltaSpeed;
+        },
+      });
+    </script>
+
+    <!-- ======= HDR 프레임워크 ======= -->
+    <style id="forced-hdr-core-style">
+      html,
+      body {
+        width: 100% !important;
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-sizing: border-box !important;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: inherit !important;
+        image-rendering: -webkit-optimize-contrast !important;
+        filter: contrast(102%) saturate(105%) brightness(100%) !important;
+      }
+      html {
+        filter: contrast(110%) saturate(110%) brightness(102%) !important;
+        will-change: filter !important;
+      }
+      @media (dynamic-range: high) {
+        html {
+          color-profile: display-p3 !important;
+        }
+      }
+    </style>
+
+    <style>
+      html,
+      body {
+        overflow: hidden !important;
+        background-color: #000000 !important;
+      }
+
+      #xr-bg-container {
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        overflow: hidden;
+        touch-action: none;
+        cursor: grab;
+        user-select: none;
+        filter: none !important;
+        background-color: #41203c;
+        background-image: url("./img/palace/panorama.jpg?v=panoramic-hall"), url("data:image/jpeg;base64,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");
+        background-position: center;
+        background-size: auto max(100vh, 110vw);
+        background-repeat: repeat-x;
+        perspective-origin: 50% 50%;
+      }
+      #xr-bg-container[data-place="bedroom"]:not([data-relief-ready]) {
+        background: #1e1528 url('./img/locations/bedroom.webp') center / cover no-repeat;
+        background-size: cover !important; background-position: center !important;
+      }
+      #xr-bg-container:is([data-place="courtyard"],[data-place="exterior"]):not([data-relief-ready]) {
+        background: #2d2442 url('./img/locations/floating-castle-sky.webp') center 43% / cover no-repeat;
+      }
+      #xr-bg-container:is([data-place="bedroom"],[data-place="courtyard"],[data-place="exterior"],[data-place="passage"]) #palace-cube { visibility: hidden; }
+      #palace-locations { position: relative; display: inline-block; pointer-events: auto; color: #fff; z-index: 3; }
+      #palace-locations summary { list-style: none; cursor: pointer; white-space: nowrap;
+        font: 600 12px/1.2 system-ui, sans-serif; border: 1px solid #d8a8f8; border-radius: 16px;
+        background: #321b49; padding: 7px 9px; }
+      #palace-locations summary::-webkit-details-marker { display: none; }
+      #palace-locations summary:focus-visible, #palace-locations button:focus-visible {
+        outline: 2px solid #fff; outline-offset: 2px; }
+      #palace-locations .location-list { position: absolute; inset: calc(100% + 6px) auto auto 0;
+        z-index: 4; display: grid; gap: 4px; width: min(186px,54vw); padding: 5px;
+        background: #231432; border: 1px solid #b48ad4; border-radius: 11px; }
+      #palace-locations:not([open]) .location-list, #palace-seat[hidden], #palace-bed-action[hidden], #palace-curtain[hidden], #palace-gate-action[hidden], #palace-castle-note[hidden], #palace-interior-door[hidden] { display: none; }
+      #palace-locations .location-list button { width: 100%; padding: 9px 6px; text-align: left;
+        color: #f5e9ff; background: #331d48; border: 0; border-radius: 7px; font: 600 12px/1.2 system-ui, sans-serif; }
+      #palace-locations .location-list button[aria-pressed="true"] { color: #241339; background: #e7cefc; }
+      .location-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+      #xr-bg-container[data-place="passage"]:not([data-relief-ready]) { background: #241431; }
+      #xr-bg-container:active { cursor: grabbing; }
+      #palace-relief {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+        visibility: hidden;
+        pointer-events: none;
+        filter: none !important;
+        image-rendering: auto !important;
+      }
+      #xr-bg-container[data-relief-ready] #palace-relief { visibility: visible; }
+      #xr-bg-container[data-relief-ready] { background-image: none; }
+      #xr-bg-container[data-relief-ready] #palace-cube { visibility: hidden; }
+      #palace-cube {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        transform-style: preserve-3d;
+        filter: none !important;
+        pointer-events: none;
+      }
+      #palace-cube > div {
+        position: absolute;
+        width: 1025px;
+        height: 1025px;
+        left: -512.5px;
+        top: -512.5px;
+        background: var(--face) center / 100% 100% no-repeat;
+        transform: var(--rotation) translateZ(-512px);
+        backface-visibility: hidden;
+        filter: none !important;
+        image-rendering: auto !important;
+      }
+      @supports not (transform-style: preserve-3d) {
+        #palace-cube { display: none; }
+      }
+      #joystick-zone:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+      #joystick-zone .palace-stick-knob {
+        position: absolute;
+        width: 32%;
+        height: 32%;
+        top: 34%;
+        left: 34%;
+        border-radius: 50%;
+        background: #f3e8ff;
+        box-shadow: 0 0 14px #a855f7;
+        pointer-events: none;
+      }
+
+      #main-content {
+        justify-content: flex-end;
+        padding-bottom: 1rem;
+      }
+
+      #main-content > :first-child {
+        margin-bottom: 0.5rem;
+      }
+
+      #main-content > :first-child img {
+        max-height: 64px;
+        object-fit: contain;
+      }
+
+      #main-content > nav {
+        margin-top: 0.75rem;
+      }
+
+      #ui-layer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 10;
+        width: 1500px !important;
+        height: 900px !important;
+        transform-origin: top left !important;
+        display: flex !important;
+        flex-direction: column !important;
+        color: #e9d5ff;
+        pointer-events: none !important;
+      }
+
+      .clickable,
+      a,
+      button,
+      input,
+      #apps-popup,
+      #supabase-results-panel {
+        pointer-events: auto !important;
+      }
+
+      .search-bar {
+        border: 1px solid rgba(192, 132, 252, 0.6);
+        border-radius: 9999px;
+        background: rgba(12, 4, 28, 0.85);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        transition:
+          box-shadow 0.25s,
+          border-color 0.25s;
+      }
+      .search-bar:focus-within {
+        border-color: #c084fc;
+        box-shadow: 0 0 30px rgba(192, 132, 252, 0.7);
+      }
+      #suggestions {
+        background: rgba(12, 4, 28, 0.95);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(192, 132, 252, 0.4);
+        border-top: none;
+        border-radius: 0 0 1.5rem 1.5rem;
+        overflow: hidden;
+      }
+      #suggestions li {
+        padding: 10px 20px;
+        cursor: pointer;
+        color: #d8b4fe;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: background 0.15s;
+      }
+      #suggestions li:hover {
+        background: rgba(192, 132, 252, 0.15);
+      }
+
+      #toggle-main-btn {
+        width: 44px;
+        height: 44px;
+        background: rgba(12, 4, 28, 0.95);
+        border: 2px solid #c084fc;
+        border-radius: 50%;
+        font-size: 20px;
+        cursor: pointer;
+        transition:
+          background 0.25s,
+          transform 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        pointer-events: auto !important;
+        z-index: 1000 !important;
+      }
+      #toggle-main-btn:hover {
+        background: #a855f7;
+        transform: scale(1.12);
+      }
+
+      .japan-wifi {
+        background: linear-gradient(90deg, #22c55e, #86efac);
+        color: #052e16;
+        padding: 6px 14px;
+        border-radius: 9999px;
+        font-size: 12px;
+        font-weight: 900;
+        box-shadow: 0 0 16px #22c55e88;
+        pointer-events: none;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .no-login-badge {
+        background: linear-gradient(90deg, #eab308, #fef08a);
+        color: #713f12;
+        padding: 6px 14px;
+        border-radius: 9999px;
+        font-size: 12px;
+        font-weight: 900;
+        box-shadow: 0 0 16px rgba(234, 179, 8, 0.6);
+        pointer-events: none;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      #fullscreen-btn-top {
+        background: linear-gradient(135deg, #a855f7, #6b21a8);
+        color: #ffffff;
+        padding: 6px 16px;
+        border-radius: 9999px;
+        font-size: 13px;
+        font-weight: bold;
+        border: 1px solid #d8b4fe;
+        cursor: pointer;
+        box-shadow: 0 0 15px rgba(168, 85, 247, 0.6);
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      #fullscreen-btn-top:hover {
+        background: linear-gradient(135deg, #c084fc, #9333ea);
+        transform: scale(1.05);
+      }
+
+      #apps-popup {
+        display: none;
+        position: fixed;
+        top: 60px;
+        right: 16px;
+        background: rgba(12, 4, 28, 0.97);
+        border: 1px solid rgba(192, 132, 252, 0.4);
+        border-radius: 16px;
+        padding: 16px;
+        z-index: 600;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        width: 280px;
+        box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+      }
+      #apps-popup.open {
+        display: block;
+      }
+      .app-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+      .app-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 10px 6px;
+        border-radius: 12px;
+        color: #d8b4fe;
+        font-size: 11px;
+        text-decoration: none;
+        transition: background 0.15s;
+      }
+      .app-item:hover {
+        background: rgba(192, 132, 252, 0.2);
+        color: #fff;
+      }
+      .app-item i {
+        font-size: 22px;
+      }
+
+      #home-controls {
+        position: fixed;
+        left: max(10px, env(safe-area-inset-left));
+        right: max(10px, env(safe-area-inset-right));
+        bottom: var(--controls-bottom, max(10px, env(safe-area-inset-bottom)));
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 8px;
+        pointer-events: none;
+      }
+      #player-tools, #browser-tools {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+      }
+      #browser-tools { align-items: flex-end; flex-direction: column-reverse; }
+      #browser-tools > :is(button, a, input) {
+        position: static !important;
+        margin: 0 !important;
+        max-width: min(140px, 28vw);
+        line-height: 1.15;
+        overflow-wrap: anywhere;
+      }
+      #palace-camera {
+        display: block;
+        width: clamp(108px, 20vw, 138px);
+        box-sizing: border-box;
+        max-height: max(85px, calc(100dvh - 155px));
+        overflow-y: auto;
+        min-inline-size: 0;
+        margin: 0;
+        padding: 3px;
+        border: 1px solid #b394d2;
+        border-radius: 14px;
+        background: #21142f;
+        color: white;
+        pointer-events: auto;
+        touch-action: manipulation;
+      }
+      #palace-camera .palace-camera-row { display: flex; }
+      #palace-camera .palace-camera-row label { flex: 1; position: relative; cursor: pointer; }
+      #palace-third-options { border-top: 1px solid #846598; margin-top: 3px; padding-top: 3px; }
+      #palace-third-options[hidden] { display: none; }
+      #palace-camera .palace-distance { display: block; padding: 4px 6px; font: 500 13px system-ui, sans-serif; }
+      #palace-distance { display: block; width: 100%; height: 26px; accent-color: #dcc0f6; }
+      #palace-camera input[type="radio"] {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        clip-path: inset(50%);
+      }
+      #palace-camera span {
+        display: grid;
+        place-items: center;
+        min-height: 44px;
+        border-radius: 10px;
+        font: 600 15px/1.2 system-ui, sans-serif;
+      }
+      #palace-camera input:checked + span { background: #e8d5ff; color: #2a153e; }
+      #palace-camera input:focus-visible + span { outline: 2px solid white; outline-offset: 1px; }
+      .palace-move-keys { display: grid; gap: 4px; margin: 3px 0; padding: 5px;
+        border-top: 1px solid #846598; color: #f6ebff; font: 600 12px/1.2 system-ui, sans-serif; }
+      #palace-move-keys { width: 100%; min-height: 34px; padding: 4px; color: #f6ebff;
+        border-radius: 7px; border: 1px solid #ab8ac5; background: #321d47; font: inherit; color-scheme: dark; }
+      #palace-move-keys:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+      #palace-castle-note { margin: 6px 2px; color: #ffebb9; font: 600 13px/1.35 system-ui, sans-serif; }
+      #palace-seat, #palace-bed-action, #palace-gate-action, #palace-interior-door {
+        display: block; width: 100%; min-height: 44px; margin-top: 3px;
+        border: 1px solid #d9ae64; border-radius: 9px;
+        color: #26172c; background: #f3d598;
+        font: 600 14px/1.25 system-ui, sans-serif;
+        cursor: pointer; touch-action: manipulation;
+      }
+      #palace-seat:disabled, #palace-bed-action:disabled { background: #342535; color: #d5c5d3; border-color: #765976; cursor: default; }
+      #palace-seat:focus-visible, #palace-bed-action:focus-visible, #palace-gate-action:focus-visible, #palace-interior-door:focus-visible { outline: 2px solid white; outline-offset: 1px; }
+      #palace-curtain {
+        display: block; width: 100%; min-height: 38px; margin-top: 4px; padding: 4px;
+        border: 1px solid #b18acb; border-radius: 9px; background: #3c2058; color: #f8eeff;
+        font: 600 13px/1.2 system-ui, sans-serif; cursor: pointer;
+      }
+      #palace-curtain:disabled { opacity: .60; cursor: default; }
+      #palace-curtain:focus-visible { outline: 2px solid white; outline-offset: 1px; }
+      #joystick-zone {
+        position: relative !important;
+        width: clamp(82px, 13vw, 124px) !important;
+        aspect-ratio: 1;
+        flex: none;
+        display: block !important;
+        pointer-events: auto !important;
+        touch-action: none !important;
+        -webkit-user-select: none !important;
+        user-select: none !important;
+        border-radius: 50% !important;
+        background: rgba(168, 85, 247, 0.15) !important;
+        border: 3px dashed rgba(192, 132, 252, 0.6) !important;
+        box-shadow: 0 0 20px rgba(192, 132, 252, 0.4) !important;
+      }
+
+      #search-dock {
+        position: absolute;
+        left: var(--search-left, 0px);
+        right: var(--search-right, 0px);
+        bottom: var(--search-bottom, 0px);
+        max-height: var(--search-limit, 44%);
+        min-height: 0;
+        overflow: auto;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+        pointer-events: none;
+      }
+      #search-dock[data-scrollable], #search-dock .search-bar, #search-dock #suggestions {
+        pointer-events: auto;
+      }
+      #search-dock .clickable { pointer-events: none !important; }
+      #search-dock[hidden] { display: none !important; }
+      @media (max-width: 620px) {
+        body[data-compact-keyboard] #browser-tools, body[data-compact-keyboard] #palace-camera {
+          max-height: 84px;
+          overflow-y: auto;
+          pointer-events: auto;
+        }
+        body[data-compact-keyboard] #joystick-zone { width: 62px !important; }
+        body[data-compact-keyboard] #main-content > :first-child { display: none; }
+      }
+      #search-dock #main-content { padding: 6px 12px; }
+      #search-dock #main-content > :first-child { margin-bottom: 4px; }
+      #search-dock #main-content > :first-child img { max-height: 36px; }
+      #search-dock #main-content > .flex-wrap { margin-top: 8px; }
+      #search-dock #main-content > nav { margin-top: 8px; }
+      #search-dock #main-footer {
+        width: fit-content;
+        max-width: 100%;
+        margin-inline: auto;
+        padding: 4px 12px;
+        text-shadow: 0 1px 3px #100517, 0 0 6px #100517;
+      }
+      #search-dock #suggestions { position: static; max-height: 150px; overflow-y: auto; }
+      body { background: linear-gradient(180deg, #19101d, #24152e 70%, #100c18) !important; }
+      #search-dock #main-content > :first-child p, #main-content nav a {
+        text-shadow: 0 1px 3px #0d0713, 0 0 6px #0d0713;
+      }
+      #search-dock button.bg-transparent { background-color: rgba(19, 10, 30, .82); }
+      body #gfd-history-panel, body #gfd-firecrawl-panel, body #gfd-pia-widget {
+        box-sizing: border-box;
+        right: var(--popup-right, 12px) !important;
+        bottom: var(--popup-bottom, 12px) !important;
+        max-width: var(--popup-width, calc(100vw - 24px)) !important;
+        max-height: var(--popup-height, 70dvh) !important;
+        overflow: auto;
+      }
+      body #gfd-history-panel { left: var(--popup-left, 12px); top: var(--popup-top, 12px); }
+      #supabase-results-panel, #apps-popup {
+        right: var(--inside-popup-right, 16px) !important;
+        max-width: var(--inside-popup-width, 90%) !important;
+        top: var(--inside-popup-top, 64px) !important;
+        max-height: var(--inside-popup-height, 65%) !important;
+        overflow-y: auto;
+      }
+      @media (max-width: 620px) and (orientation: portrait), (max-width: 450px) {
+        #home-controls { --stack-controls: 1; }
+        #player-tools { flex-direction: row-reverse; align-items: flex-end; }
+        #palace-camera { max-height: min(210px, 36dvh); }
+        #browser-tools > :is(button, a, input) { padding: 7px 6px !important; font-size: 12px !important; }
+        #joystick-zone { width: clamp(62px, 19vw, 94px) !important; }
+      }
+      .nipple {
+        opacity: 1 !important;
+      }
+      .nipple .back {
+        opacity: 1 !important;
+        background: rgba(168, 85, 247, 0.4) !important;
+      }
+      .nipple .front {
+        opacity: 1 !important;
+        background: #f3e8ff !important;
+        box-shadow: 0 0 15px #a855f7 !important;
+      }
+
+      .force-hidden {
+        display: none !important;
+      }
+
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: rgba(12, 4, 28, 0.5);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #a855f7;
+        border-radius: 3px;
+      }
+    </style>
+    <style>
+      @font-face {
+        font-family: "acutehoney";
+        src: url("https://cdn.jsdelivr.net/gh/luckysexyqueen/GoldFireDragonUnCensoredBrowser/fonts/a%ED%81%90%ED%8B%B0%ED%97%88%EB%8B%88.woff")
+          format("woff");
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      *,
+      *::before,
+      *::after,
+      input,
+      button,
+      textarea,
+      select {
+        font-family: "acutehoney", sans-serif !important;
+      }
+    </style>
+
+    <div id="xr-bg-container" role="region" tabindex="0" aria-label="검과 용 문장 방패를 든 황금 수호기사 둘이 빈 왕좌를 지키는 360도 궁전. 1인칭에서 아래를 보면 내 몸이 보입니다. 조이스틱으로 이동하고 궁전 화면을 한 손가락으로 드래그해 둘러봅니다. 3인칭에서는 캐릭터 주위를 좌우로 돌거나 위아래로 시점을 옮길 수 있습니다. WASD와 방향키로 이동합니다. PC 이동키 메뉴에서 변경할 수 있습니다. Home 키로 처음 위치로 돌아갑니다.">
+      <canvas id="palace-relief" aria-hidden="true"></canvas>
+      <div id="royal-npc-markers" aria-label="왕실 인물"></div>
+      <div id="palace-cube" aria-hidden="true">
+        <div style="--face: url(./img/palace/front.jpg?v=panoramic-hall); --rotation: rotateY(0deg)"></div>
+        <div style="--face: url(./img/palace/right.jpg?v=panoramic-hall); --rotation: rotateY(-90deg)"></div>
+        <div style="--face: url(./img/palace/back.jpg?v=panoramic-hall); --rotation: rotateY(180deg)"></div>
+        <div style="--face: url(./img/palace/left.jpg?v=panoramic-hall); --rotation: rotateY(90deg)"></div>
+        <div style="--face: url(./img/palace/up.jpg?v=panoramic-hall); --rotation: rotateX(-90deg)"></div>
+        <div style="--face: url(./img/palace/down.jpg?v=panoramic-hall); --rotation: rotateX(90deg)"></div>
+      </div>
+    </div>
+
+    <!-- UI 오버레이 레이어 -->
+    <div id="ui-layer">
+      <header
+        class="flex justify-between items-center px-4 py-3 gap-2 z-50 flex-wrap"
+        style="background: linear-gradient(to bottom, rgba(0, 0, 0, 0.85), transparent)"
+      >
+        <div class="flex items-center gap-2 flex-wrap">
+          <div class="japan-wifi">🇯🇵 Japan WiFi IP</div>
+          <div class="no-login-badge">🔓 무로그인 전체우회 모드</div>
+          <button id="palace-front" type="button" class="text-sm px-2 py-1">왕좌 정면</button>
+          <details id="palace-locations">
+            <summary>📍 장소 이동</summary>
+            <div class="location-list" role="group" aria-label="이동할 장소">
+              <button type="button" data-place="palace" aria-pressed="true">🏰 궁전</button>
+              <button type="button" data-place="courtyard" aria-pressed="false">⛲ 성 안뜰</button>
+              <button type="button" data-place="exterior" aria-pressed="false">☁️ 성 밖 전망대</button>
+              <button type="button" data-place="passage" aria-pressed="false">🔑 침실 연결 통로</button>
+              <button type="button" data-place="bedroom"  aria-pressed="false">🛏️ 마도여왕님의 침실</button>
+            </div>
+          </details>
+          <output id="palace-location-status" class="location-status" aria-live="polite"></output>
+          <button id="fullscreen-btn-top" title="전체화면 전환">
+            <i class="fa-solid fa-expand"></i>
+            🖥️ 전체화면
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2 flex-wrap justify-end">
+          <a
+            href="https://mail.google.com"
+            target="_blank"
+            class="text-sm text-purple-300 hover:text-white px-2 py-1 rounded hover:bg-white/10 transition whitespace-nowrap"
+          >
+            Gmail
+          </a>
+          <a
+            href="https://images.google.co.jp"
+            target="_blank"
+            class="text-sm text-purple-300 hover:text-white px-2 py-1 rounded hover:bg-white/10 transition whitespace-nowrap"
+          >
+            이미지
+          </a>
+          <a
+            href="https://news.google.com"
+            target="_blank"
+            class="text-sm text-purple-300 hover:text-white px-2 py-1 rounded hover:bg-white/10 transition whitespace-nowrap"
+          >
+            뉴스
+          </a>
+          <a
+            href="https://maps.google.co.jp"
+            target="_blank"
+            class="text-sm text-purple-300 hover:text-white px-2 py-1 rounded hover:bg-white/10 transition whitespace-nowrap"
+          >
+            지도
+          </a>
+          <button
+            id="apps-btn"
+            class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition"
+            title="앱 목록"
+          >
+            <i class="fa-solid fa-grip text-purple-300 text-lg"></i>
+          </button>
+          <button id="toggle-main-btn" type="button" aria-controls="search-dock" aria-expanded="true" title="검색창 및 로고 숨기기 / 보이기">👁️</button>
+        </div>
+      </header>
+
+      <div id="apps-popup" role="dialog" aria-label="앱 목록">
+        <p class="text-purple-400 text-xs mb-3 font-semibold tracking-wide">빠른 링크 (로그인 우회)</p>
+        <div class="app-grid">
+          <a href="https://mail.google.com" target="_blank" class="app-item">
+            <i class="fa-solid fa-envelope"></i>
+            Gmail
+          </a>
+          <a href="https://maps.google.co.jp" target="_blank" class="app-item">
+            <i class="fa-solid fa-map-location-dot"></i>
+            지도
+          </a>
+          <a href="https://www.youtube.com" target="_blank" class="app-item">
+            <i class="fa-brands fa-youtube"></i>
+            YouTube
+          </a>
+          <a href="https://news.google.com" target="_blank" class="app-item">
+            <i class="fa-solid fa-newspaper"></i>
+            뉴스
+          </a>
+          <a href="https://translate.google.com" target="_blank" class="app-item">
+            <i class="fa-solid fa-language"></i>
+            번역
+          </a>
+          <a href="https://drive.google.com" target="_blank" class="app-item">
+            <i class="fa-brands fa-google-drive"></i>
+            드라이브
+          </a>
+          <a href="https://calendar.google.com" target="_blank" class="app-item">
+            <i class="fa-solid fa-calendar-days"></i>
+            캘린더
+          </a>
+          <a href="https://photos.google.com" target="_blank" class="app-item">
+            <i class="fa-solid fa-images"></i>
+            포토
+          </a>
+          <a href="https://meet.google.com" target="_blank" class="app-item">
+            <i class="fa-solid fa-video"></i>
+            Meet
+          </a>
+        </div>
+      </div>
+
+      <!-- Supabase 통합 검색 결과 패널 -->
+      <div
+        id="supabase-results-panel"
+        class="hidden absolute right-6 top-24 w-96 max-h-[70vh] bg-black/85 border border-purple-500 rounded-xl p-4 overflow-y-auto z-[600] shadow-[0_0_30px_rgba(168,85,247,0.5)] backdrop-blur-md flex-col"
+      >
+        <div class="flex justify-between items-center mb-3 border-b border-purple-800 pb-2">
+          <h3 class="text-purple-300 text-sm font-bold">
+            <i class="fa-solid fa-bolt text-yellow-400 mr-2"></i>
+            Supabase 무로그인 바이패스 분석
+          </h3>
+          <button id="close-results-btn" class="text-purple-400 hover:text-white text-2xl leading-none">×</button>
+        </div>
+        <div
+          id="supabase-results"
+          class="text-xs text-gray-300 break-all whitespace-pre-wrap flex-1 overflow-y-auto"
+        ></div>
+      </div>
+
+      <section id="search-dock" aria-label="브라우저 검색">
+      <!-- 로고와 검색창 영역 -->
+      <main id="main-content" class="flex-1 flex flex-col items-center justify-center px-4 py-10">
+        <div class="mb-8 text-center select-none clickable">
+          <img
+            src="https://cdn.jsdelivr.net/gh/luckysexysuccubusqueen135age/GFD@a81b2430450dcf18c49813c55be06c6ee0ad256f/images/GoldFireDragonBrowser_logo_removebg_preview.png"
+            style="
+              width: clamp(90px, 16vw, 160px);
+              display: block;
+              height: auto;
+              filter: none !important;
+              image-rendering: auto !important;
+            "
+            class="mx-auto drop-shadow-lg"
+            draggable="false"
+            alt="GoldFireDragon Logo"
+          />
+          <p class="text-purple-300 text-sm mt-1">로그인 없이 자유로운 360° XR 무제한 우회 브라우저</p>
+        </div>
+
+        <div class="w-full max-w-[680px] relative clickable">
+          <div class="search-bar flex items-center px-5 py-3">
+            <i class="fa-solid fa-magnifying-glass text-lg text-purple-400 mr-4 flex-shrink-0"></i>
+            <input
+              id="search-input"
+              type="text"
+              class="flex-1 bg-transparent outline-none text-base md:text-lg placeholder:text-purple-400 text-purple-100 min-w-0"
+              placeholder="검색어 또는 URL 주소를 입력하세요 (무로그인 우회 지원)"
+              autocomplete="off"
+              aria-label="검색어 입력"
+            />
+            <button
+              id="clear-btn"
+              class="hidden text-lg text-purple-300 hover:text-white mr-3 flex-shrink-0"
+              title="지우기"
+              aria-label="검색어 지우기"
+            >
+              ✕
+            </button>
+            <button
+              id="voice-btn"
+              class="text-lg text-purple-400 hover:text-white mr-3 flex-shrink-0 transition"
+              title="음성 검색"
+              aria-label="음성 검색"
+            >
+              <i class="fa-solid fa-microphone"></i>
+            </button>
+            <button
+              id="lens-btn"
+              class="text-lg text-purple-400 hover:text-white flex-shrink-0 transition"
+              title="Google Lens 이미지 검색"
+              aria-label="Google Lens 이미지 검색"
+            >
+              <i class="fa-solid fa-camera"></i>
+            </button>
+          </div>
+          <ul id="suggestions" class="hidden absolute left-0 right-0 z-50" role="listbox"></ul>
+        </div>
+
+        <!-- 검색 및 우회 접속 버튼 그룹 -->
+        <div class="flex justify-center gap-3 mt-6 flex-wrap clickable">
+          <button
+            id="search-btn"
+            class="px-6 py-3 bg-purple-600 hover:bg-purple-700 active:scale-95 rounded-xl text-sm font-semibold transition-all shadow-lg shadow-purple-900/50"
+          >
+            GoldFireDragon 검색
+          </button>
+          <button id="gfd-custom-search-btn" type="button" class="px-6 py-3 bg-transparent border border-purple-400 hover:bg-purple-500/20 rounded-xl text-sm font-semibold" title="입력한 검색어로 Google 맞춤검색 열기">Google 맞춤검색</button>
+          <button
+            id="japan-google-btn"
+            type="button"
+            class="px-6 py-3 bg-transparent border border-rose-400 hover:bg-rose-500/20 active:scale-95 rounded-xl text-sm font-semibold text-rose-100 transition-all"
+            title="일본 지역 검색 설정: 한국어 Google 검색 (일본 IP는 중계 서버 설정에 따라 달라짐)"
+            aria-label="일본 지역 한국어 Google 검색"
+          >
+            🇯🇵 일본 Google 한국어 검색
+          </button>
+          <button
+            id="wayback-btn"
+            type="button"
+            class="px-6 py-3 bg-transparent border border-sky-400 hover:bg-sky-500/20 active:scale-95 rounded-xl text-sm font-semibold text-sky-200 transition-all"
+            title="입력한 웹사이트의 Wayback Machine 보관 기록 보기"
+            aria-label="Wayback Machine 웹사이트 기록 검색"
+          >
+            <i class="fa-solid fa-clock-rotate-left"></i>
+            Wayback Machine
+          </button>
+          <button
+            id="lucky-btn"
+            class="px-6 py-3 bg-transparent border border-purple-400 hover:bg-purple-500/20 active:scale-95 rounded-xl text-sm font-semibold transition-all"
+          >
+            I'm Feeling Lucky
+          </button>
+          <button
+            id="croxy-btn"
+            class="px-6 py-3 bg-transparent border border-emerald-500 hover:bg-emerald-500/20 active:scale-95 rounded-xl text-sm font-semibold text-emerald-300 hover:text-emerald-100 transition-all flex items-center gap-2"
+          >
+            <i class="fa-solid fa-shield-halved"></i>
+            CroxyProxy 우회
+          </button>
+          <button
+            id="bypass-btn"
+            class="px-6 py-3 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 active:scale-95 rounded-xl text-sm font-semibold text-white transition-all flex items-center gap-2 shadow-lg shadow-red-900/50"
+          >
+            <i class="fa-solid fa-lock-open"></i>
+            🔥 무로그인 강력 우회
+          </button>
+        </div>
+
+        <nav class="mt-12 flex gap-5 flex-wrap justify-center clickable" aria-label="빠른 링크">
+          <a
+            href="https://mail.google.com"
+            target="_blank"
+            class="flex flex-col items-center gap-2 text-purple-300 hover:text-white transition group"
+          >
+            <div
+              class="w-12 h-12 rounded-2xl bg-white/10 group-hover:bg-purple-600/40 flex items-center justify-center transition"
+            >
+              <i class="fa-solid fa-envelope text-xl"></i>
+            </div>
+            <span class="text-xs">Gmail</span>
+          </a>
+          <a
+            href="https://maps.google.co.jp"
+            target="_blank"
+            class="flex flex-col items-center gap-2 text-purple-300 hover:text-white transition group"
+          >
+            <div
+              class="w-12 h-12 rounded-2xl bg-white/10 group-hover:bg-purple-600/40 flex items-center justify-center transition"
+            >
+              <i class="fa-solid fa-map-location-dot text-xl"></i>
+            </div>
+            <span class="text-xs">지도</span>
+          </a>
+          <a
+            href="https://news.google.com"
+            target="_blank"
+            class="flex flex-col items-center gap-2 text-purple-300 hover:text-white transition group"
+          >
+            <div
+              class="w-12 h-12 rounded-2xl bg-white/10 group-hover:bg-purple-600/40 flex items-center justify-center transition"
+            >
+              <i class="fa-solid fa-newspaper text-xl"></i>
+            </div>
+            <span class="text-xs">뉴스</span>
+          </a>
+          <a
+            href="https://www.youtube.com"
+            target="_blank"
+            class="flex flex-col items-center gap-2 text-purple-300 hover:text-white transition group"
+          >
+            <div
+              class="w-12 h-12 rounded-2xl bg-white/10 group-hover:bg-purple-600/40 flex items-center justify-center transition"
+            >
+              <i class="fa-brands fa-youtube text-xl"></i>
+            </div>
+            <span class="text-xs">YouTube</span>
+          </a>
+          <a
+            href="https://translate.google.com"
+            target="_blank"
+            class="flex flex-col items-center gap-2 text-purple-300 hover:text-white transition group"
+          >
+            <div
+              class="w-12 h-12 rounded-2xl bg-white/10 group-hover:bg-purple-600/40 flex items-center justify-center transition"
+            >
+              <i class="fa-solid fa-language text-xl"></i>
+            </div>
+            <span class="text-xs">번역</span>
+          </a>
+        </nav>
+      </main>
+
+      <!-- 하단 푸터 -->
+      <footer
+        id="main-footer"
+        class="py-5 text-center text-xs text-purple-200"
+      >
+        <nav class="flex justify-center gap-6 mb-2" aria-label="하단 링크">
+          <a href="javascript:void(0)" class="hover:text-purple-300 transition">개인정보처리방침</a>
+          <a href="javascript:void(0)" class="hover:text-purple-300 transition">서비스 약관</a>
+          <a href="javascript:void(0)" class="hover:text-purple-300 transition">설정</a>
+        </nav>
+        <span>🇯🇵 일본 • GoldFireDragon 360 XR Mode (No-Login Full Bypass Active)</span>
+      </footer>
+      </section>
+    </div>
+
+    <div id="home-controls">
+      <div id="player-tools">
+    <fieldset id="palace-camera" aria-label="플레이어 시점과 왕좌 동작" aria-keyshortcuts="F5" disabled>
+      <div class="palace-camera-row">
+        <label><input type="radio" name="palace-perspective" value="first" checked><span>1인칭</span></label>
+        <label><input type="radio" name="palace-perspective" value="third"><span>3인칭</span></label>
+      </div>
+      <div id="palace-third-options" hidden>
+        <div class="palace-camera-row" role="group" aria-label="내 캐릭터 기준 카메라 위치">
+          <label><input type="radio" name="palace-camera-side" value="back" checked><span>뒤에서</span></label>
+          <label><input type="radio" name="palace-camera-side" value="front"><span>앞에서</span></label>
+        </div>
+        <label class="palace-distance">카메라 거리<input id="palace-distance" type="range" min="0.75" max="1.75" step="0.05" value="1"></label>
+      </div>
+      <label class="palace-move-keys">PC 이동키
+        <select id="palace-move-keys" title="PC 이동키 설정. Shift를 함께 누르면 달립니다.">
+          <option value="both" selected>둘 다</option>
+          <option value="wasd">WASD만</option>
+          <option value="arrows">방향키만</option>
+        </select>
+      </label>
+      <p id="palace-castle-note" hidden></p>
+      <button id="palace-interior-door" type="button" aria-keyshortcuts="E" aria-expanded="false" hidden disabled>연결문 열기</button>
+      <button id="palace-gate-action" type="button" aria-keyshortcuts="E" hidden disabled>문 통과하기</button>
+      <button id="palace-seat" type="button" aria-keyshortcuts="E" title="조이스틱으로 왕좌 앞에 다가가세요." disabled>왕좌 앞에서 앉기</button>
+      <button id="palace-bed-action" type="button" aria-keyshortcuts="E" hidden disabled>침대 가까이 가기</button>
+      <div id="royal-npc-actions" aria-label="가까운 왕실 인물에게 말 걸기" hidden></div>
+      <button id="palace-curtain" type="button" aria-pressed="false" hidden disabled>커튼 닫기</button>
+    </fieldset>
+    <!-- 화면 고정 조이스틱 -->
+    <div id="joystick-zone" role="group" tabindex="0" aria-label="궁전 이동 조이스틱. 위아래는 전진과 후진, 좌우는 옆걸음입니다. PC 이동키로도 이동할 수 있습니다." title="조이스틱으로 이동 · 화면 드래그로 둘러보기"><span class="palace-stick-knob" aria-hidden="true"></span></div>
+      </div>
+      <div id="browser-tools" role="group" aria-label="브라우저 도구"><button type="button" data-gfd-generation-settings aria-haspopup="dialog" style="pointer-events:auto;background:#21142f;color:white;border:1px solid #b394d2;border-radius:9px;padding:8px 12px">생성 설정</button></div>
+    </div>
+
+    <script>
+      // 4개의 Supabase 통합 도구 무로그인 바이패스 실행 함수
+      async function runAllSupabaseFunctions(keyword) {
+        const panel = document.getElementById("supabase-results-panel");
+        const resultsDiv = document.getElementById("supabase-results");
+
+        if (!keyword || !keyword.trim()) return;
+
+        panel.classList.remove("hidden");
+        panel.classList.add("flex");
+        resultsDiv.innerHTML =
+          '<div class="text-purple-400 italic text-center py-6">4개의 Supabase 게스트 우회 도구 실행 중... <i class="fa-solid fa-spinner fa-spin ml-2"></i></div>';
+
+        const runtimeEnv = window.__ENV__ || window.parent?.__ENV__ || {};
+        const supabaseUrl = runtimeEnv.SUPABASE_URL || "https://shtixmaykwundutbshti.backend.onspace.ai";
+        const anonKey = runtimeEnv.SUPABASE_ANON_KEY || "";
+        const BASE_URL = `${supabaseUrl.replace(/\/$/, "")}/functions/v1`;
+        const functions = ["adult-proxy", "cors-proxy", "omega-focer-infinity", "dns-lookup"];
+
+        try {
+          const fetchPromises = functions.map((funcName) => {
+            const targetUrl = `${BASE_URL}/${funcName}`;
+            return fetch(targetUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(anonKey ? { apikey: anonKey, Authorization: `Bearer ${anonKey}` } : {}),
+                "X-Guest-Bypass": "true",
+                "X-Auth-Override": "unrestricted",
+              },
+              body: JSON.stringify({
+                query: keyword,
+                target: keyword,
+                domain: keyword,
+                bypass_auth: true,
+                guest_mode: true,
+              }),
+            })
+              .then(async (response) => {
+                if (!response.ok) throw new Error(`상태코드: ${response.status}`);
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.includes("application/json")) {
+                  const data = await response.json();
+                  return { name: funcName, data: JSON.stringify(data, null, 2) };
+                } else {
+                  const textData = await response.text();
+                  return { name: funcName, data: textData };
+                }
+              })
+              .catch((error) => {
+                return { name: funcName, data: `우회 결과/오류: ${error.message}` };
+              });
+          });
+
+          const allResults = await Promise.all(fetchPromises);
+
+          let outputHtml = "";
+          allResults.forEach((res) => {
+            outputHtml += `
+              <div class="mb-4">
+                <div class="text-purple-300 font-bold mb-1">[${res.name}]</div>
+                <div class="bg-gray-900 text-green-400 p-2 rounded border border-purple-900/50 max-h-40 overflow-y-auto font-mono text-[10px]">
+                  ${res.data.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}
+                </div>
+              </div>
+            `;
+          });
+          resultsDiv.innerHTML = outputHtml;
+        } catch (error) {
+          resultsDiv.innerHTML = `<div class="text-red-400 font-bold text-center py-4">시스템 오류: ${error.message}</div>`;
+        }
+      }
+
+      window.addEventListener("load", function () {
+        const cameraEl = document.getElementById("main-camera");
+        if (cameraEl && cameraEl.components && cameraEl.components["look-controls"]) {
+          cameraEl.components["look-controls"].pitchObject.rotation.x = 0;
+          cameraEl.components["look-controls"].yawObject.rotation.y = 0;
+        }
+      });
+
+      (function () {
+        const coreStyleContent =
+          "html,body{width:100%!important;height:100%!important;margin:0!important;padding:0!important;box-sizing:border-box!important;}*,*::before,*::after{box-sizing:inherit!important;image-rendering:-webkit-optimize-contrast!important;filter:contrast(102%) saturate(105%) brightness(100%)!important;}html{filter:contrast(110%) saturate(110%) brightness(102%)!important;will-change:filter!important;";
+        const applyHdrFramework = function (targetDoc) {
+          if (!targetDoc || targetDoc.getElementById("forced-hdr-core-style")) return;
+          try {
+            var style = targetDoc.createElement("style");
+            style.id = "forced-hdr-core-style";
+            style.innerHTML = coreStyleContent;
+            targetDoc.head.appendChild(style);
+          } catch (e) {}
+        };
+
+        let hdrTimeout;
+        const spreadHdrVirus = function () {
+          clearTimeout(hdrTimeout);
+          hdrTimeout = setTimeout(() => {
+            applyHdrFramework(document);
+            document.querySelectorAll("a[href]:not(.hdr-infected)").forEach(function (link) {
+              link.classList.add("hdr-infected");
+              link.addEventListener("click", function () {
+                applyHdrFramework(document);
+              });
+            });
+          }, 100);
+        };
+        window.addEventListener("DOMContentLoaded", spreadHdrVirus);
+        window.addEventListener("pageshow", spreadHdrVirus);
+        var observer = new MutationObserver(spreadHdrVirus);
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+      })();
+
+      function fitHybridLayout() {
+        const uiLayer = document.getElementById("ui-layer");
+        if (!uiLayer) return;
+        const deviceWidth = window.innerWidth;
+        const deviceHeight = window.innerHeight;
+        const isPortrait = deviceHeight > deviceWidth;
+        const baseWidth = isPortrait ? 900 : 1500;
+        const baseHeight = isPortrait ? 1500 : 900;
+
+        uiLayer.style.setProperty("width", baseWidth + "px", "important");
+        uiLayer.style.setProperty("height", baseHeight + "px", "important");
+
+        const scaleX = deviceWidth / baseWidth;
+        const scaleY = deviceHeight / baseHeight;
+        uiLayer.style.transform = "scale(" + scaleX + ", " + scaleY + ")";
+      }
+
+      window.addEventListener("DOMContentLoaded", fitHybridLayout, false);
+      window.addEventListener("resize", fitHybridLayout, false);
+
+      document.addEventListener("DOMContentLoaded", function () {
+        var input = document.getElementById("search-input");
+        var searchBtn = document.getElementById("search-btn");
+        var luckyBtn = document.getElementById("lucky-btn");
+        var waybackBtn = document.getElementById("wayback-btn");
+        var japanGoogleBtn = document.getElementById("japan-google-btn");
+        var croxyBtn = document.getElementById("croxy-btn");
+        var bypassBtn = document.getElementById("bypass-btn");
+
+        var toggleBtn = document.getElementById("toggle-main-btn");
+        var searchDock = document.getElementById("search-dock");
+
+        var fullscreenBtnTop = document.getElementById("fullscreen-btn-top");
+        var appsBtn = document.getElementById("apps-btn");
+        var appsPopup = document.getElementById("apps-popup");
+        var clearBtn = document.getElementById("clear-btn");
+        var suggestions = document.getElementById("suggestions");
+
+        document.getElementById("close-results-btn").addEventListener("click", function () {
+          document.getElementById("supabase-results-panel").classList.add("hidden");
+          document.getElementById("supabase-results-panel").classList.remove("flex");
+          document.getElementById("supabase-results-panel").removeAttribute("style");
+        });
+
+        // Fullscreen API is gesture-gated and vendor variants may return void.
+        // Never assume requestFullscreen()/exitFullscreen() returns a Promise.
+        const getFullscreenElement = () =>
+          document.fullscreenElement ||
+          document.webkitFullscreenElement ||
+          document.mozFullScreenElement ||
+          document.msFullscreenElement;
+
+        const handleFSChange = () => {
+          const isFS = Boolean(getFullscreenElement());
+          fullscreenBtnTop.innerHTML = isFS
+            ? '<i class="fa-solid fa-compress"></i> 🖥️ 전체화면 해제'
+            : '<i class="fa-solid fa-expand"></i> 🖥️ 전체화면';
+          fullscreenBtnTop.setAttribute("aria-pressed", String(isFS));
+          setTimeout(fitHybridLayout, 100);
+        };
+
+        fullscreenBtnTop.addEventListener("click", async function (event) {
+          event.preventDefault();
+          const docElem = document.documentElement;
+          const requestFS =
+            docElem.requestFullscreen ||
+            docElem.webkitRequestFullscreen ||
+            docElem.mozRequestFullScreen ||
+            docElem.msRequestFullscreen;
+          const exitFS =
+            document.exitFullscreen ||
+            document.webkitExitFullscreen ||
+            document.mozCancelFullScreen ||
+            document.msExitFullscreen;
+          try {
+            if (getFullscreenElement()) {
+              if (!exitFS) throw new Error("Fullscreen exit API unavailable");
+              await Promise.resolve(exitFS.call(document));
+            } else {
+              if (!requestFS) throw new Error("Fullscreen API unavailable");
+              await Promise.resolve(requestFS.call(docElem));
+            }
+          } catch (error) {
+            console.warn("[GFD fullscreen] Request rejected:", error);
+          } finally {
+            handleFSChange();
+          }
+        });
+
+        for (const eventName of ["fullscreenchange", "webkitfullscreenchange", "mozfullscreenchange", "MSFullscreenChange"]) {
+          document.addEventListener(eventName, handleFSChange);
+        }
+        handleFSChange();
+
+        function handleToggleAction(e) {
+          if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+
+          searchDock.hidden = !searchDock.hidden;
+          toggleBtn.setAttribute("aria-expanded", String(!searchDock.hidden));
+          toggleBtn.innerHTML = searchDock.hidden ? '<i class="fa-solid fa-eye-slash"></i>' : "👁️";
+        }
+
+        if (toggleBtn) {
+          toggleBtn.addEventListener("click", handleToggleAction);
+          toggleBtn.addEventListener("touchend", handleToggleAction);
+        }
+
+        appsBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          appsPopup.classList.toggle("open");
+        });
+        document.addEventListener("click", function () {
+          appsPopup.classList.remove("open");
+        });
+
+        function openSearch(keyword, lucky) {
+          keyword = (keyword || "").trim();
+          if (!keyword) {
+            input.focus();
+            return;
+          }
+          // 무로그인 및 성인/연령제한 완전 우회 파라미터 적용
+          const searchUrl = window.GFDGooglePatch.buildGoogleSearchURL(keyword, { lucky });
+          void window.GFDOpenSearch(searchUrl);
+        }
+
+        searchBtn.addEventListener("click", function () {
+          const keyword = input.value;
+          runAllSupabaseFunctions(keyword);
+          openSearch(keyword, false);
+        });
+
+        luckyBtn.addEventListener("click", function () {
+          const keyword = input.value;
+          runAllSupabaseFunctions(keyword);
+          openSearch(keyword, true);
+        });
+
+        // Japan-targeted Korean Google results via existing same-origin relay.
+        // gl=jp/hl=ko/safe=off are preferences, not proof of Japanese egress or bypass.
+        // 🇯🇵 일본 Google 한국어 검색: Supabase Edge Function 연결
+        const GFD_JP_PROXY_SERVER = "https://unublyqlstbetykelfmg.supabase.co/functions/v1/GOOGLEJAPAN";
+        async function launchJapanGoogleProxy() {
+          const keyword = (input.value || "").trim();
+          if (!keyword) { input.focus(); return; }
+          const googleTarget = window.GFDGooglePatch.buildGoogleSearchURL(keyword, { lucky: false });
+          // Keep the existing desktop layout intact: do not inject a full-screen iframe.
+          // Route the Supabase proxy through the browser's existing navigation UI.
+          const proxyUrl = GFD_JP_PROXY_SERVER + "?target=" + encodeURIComponent(googleTarget);
+          const panel = document.getElementById("supabase-results-panel");
+          const results = document.getElementById("supabase-results");
+          panel.classList.remove("hidden");
+          panel.classList.add("flex");
+          panel.style.cssText = "position:absolute;right:24px;top:96px;left:auto;width:min(720px,calc(100% - 48px));height:min(620px,calc(100% - 120px));max-height:70%;z-index:650;display:flex;flex-direction:column;pointer-events:auto;";
+          results.style.cssText = "flex:1;min-height:0;overflow:auto;white-space:normal;pointer-events:auto;";
+          results.textContent = "🇯🇵 GOOGLEJAPAN 검색 결과를 불러오는 중...";
+          try {
+            const response = await fetch(proxyUrl, { credentials: "omit" });
+            if (response.status === 429) {
+              // A proxy cannot bypass Google's upstream rate limit. Fall back to
+              // the actual Google search page rather than retrying the blocked proxy.
+              results.textContent = "프록시 요청 제한(429). Google 검색 웹사이트로 전환합니다...";
+              await window.GFDOpenSearch(googleTarget);
+              return;
+            }
+            if (!response.ok) throw new Error("HTTP " + response.status);
+            const html = await response.text();
+            if (!/<(?:!doctype\s+html|html|body|div)[\s>]/i.test(html.slice(0, 8192))) {
+              throw new Error("프록시가 웹페이지 HTML을 반환하지 않았습니다.");
+            }
+            const frame = document.createElement("iframe");
+            frame.title = "GOOGLEJAPAN 검색 결과 웹페이지";
+            frame.setAttribute("sandbox", "allow-forms allow-popups allow-scripts");
+            frame.setAttribute("referrerpolicy", "no-referrer");
+            frame.style.cssText = "display:block;width:100%;height:100%;min-height:0;flex:1;border:0;background:white;pointer-events:auto;";
+            frame.srcdoc = html;
+            results.replaceChildren(frame);
+            results.style.display = "flex";
+            results.style.flexDirection = "column";
+          } catch (error) {
+            const message = String(error && error.message || error);
+            if (/429|rate.limit|too.many.requests/i.test(message)) {
+              results.textContent = "Google 또는 프록시 요청 제한(429). Google 검색 웹사이트로 전환합니다...";
+              try { await window.GFDOpenSearch(googleTarget); }
+              catch (navigationError) {
+                results.textContent = "검색 페이지 자동 전환 실패: " + navigationError.message;
+                const link = document.createElement("a");
+                link.href = googleTarget;
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+                link.textContent = "Google 검색 결과 열기";
+                link.style.cssText = "display:block;color:#c4b5fd;text-decoration:underline;padding:12px";
+                results.appendChild(link);
+              }
+            } else {
+              results.textContent = "GOOGLEJAPAN 응답 오류: " + message;
+            }
+          }
+        }
+        // Google blocks server-side proxy requests with 429. Search from the
+        // user's browser instead; this avoids the blocked Supabase egress.
+        // Keep launchJapanGoogleProxy available for explicit proxy diagnostics.
+        japanGoogleBtn.addEventListener("click", function () {
+          const keyword = (input.value || "").trim();
+          if (!keyword) { input.focus(); return; }
+          const googleTarget = window.GFDGooglePatch.buildGoogleSearchURL(keyword, { lucky: false });
+          void window.GFDOpenSearch(googleTarget);
+        });
+
+        // Wayback Machine: URL이면 해당 사이트의 보관 기록을, 검색어면 아카이브 사이트 검색을 연다.
+        waybackBtn.addEventListener("click", function () {
+          var raw = (input.value || "").trim();
+          if (!raw) { input.focus(); return; }
+          var archiveUrl;
+          var candidate = raw;
+          if (!/^https?:\/\//i.test(candidate) && /^[^\s/]+\.[a-z]{2,}(?:[/:?#]|$)/i.test(candidate)) {
+            candidate = "https://" + candidate;
+          }
+          try {
+            var parsed = new URL(candidate);
+            if ((parsed.protocol === "https:" || parsed.protocol === "http:") && parsed.hostname && !parsed.username && !parsed.password) {
+              archiveUrl = "https://web.archive.org/web/*/" + parsed.href;
+            }
+          } catch (e) {}
+          if (!archiveUrl) {
+            archiveUrl = "https://web.archive.org/web/*/" + encodeURIComponent(raw);
+          }
+          window.open(archiveUrl, "_blank", "noopener,noreferrer");
+        });
+
+        // CroxyProxy 우회 버튼
+        croxyBtn.addEventListener("click", function () {
+          var q = (input.value || "").trim();
+          if (!q) {
+            input.focus();
+            return;
+          }
+          runAllSupabaseFunctions(q);
+
+          var isURL = /^https?:\/\//i.test(q) || /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/.*)?$/.test(q);
+          var targetUrl = isURL
+            ? q
+            : `https://www.google.co.jp/search?q=${encodeURIComponent(q)}&gl=jp&hl=ko&safe=off&nfpr=1&filter=0&pws=0&desktop=true&adult=true&age=19&is_adult=Y&adult_auth=true`;
+          void window.GFDOpenSearch("https://www.croxyproxy.com/_ko/?__cpLangSet=1&url=" + encodeURIComponent(targetUrl));
+        });
+
+        // 🔥 무로그인 강력 우회 접속 (BlockAway) 버튼
+        bypassBtn.addEventListener("click", function () {
+          var q = (input.value || "").trim();
+          if (!q) {
+            input.focus();
+            return;
+          }
+          runAllSupabaseFunctions(q);
+
+          var isURL = /^https?:\/\//i.test(q) || /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/.*)?$/.test(q);
+          var targetUrl = isURL
+            ? q
+            : `https://www.google.co.jp/search?q=${encodeURIComponent(q)}&gl=jp&hl=ko&safe=off&nfpr=1&filter=0&pws=0&desktop=true&adult=true&age=19&is_adult=Y&adult_auth=true`;
+          void window.GFDOpenSearch("https://www.blockaway.net/_ko/?__cpLangSet=1&url=" + encodeURIComponent(targetUrl));
+        });
+
+        input.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") {
+            const keyword = input.value;
+            runAllSupabaseFunctions(keyword);
+            openSearch(keyword, false);
+            hideSuggestions();
+          }
+        });
+
+        input.addEventListener("input", function () {
+          clearBtn.classList.toggle("hidden", !input.value);
+          if (input.value.length >= 2) fetchSuggestions(input.value);
+          else hideSuggestions();
+        });
+
+        clearBtn.addEventListener("click", function () {
+          input.value = "";
+          clearBtn.classList.add("hidden");
+          hideSuggestions();
+          input.focus();
+        });
+
+        var suggestTimer = null;
+        var scriptCounter = 0;
+        function fetchSuggestions(query) {
+          clearTimeout(suggestTimer);
+          suggestTimer = setTimeout(function () {
+            var cbName = "__fdSuggest_" + ++scriptCounter;
+            var scriptEl = document.createElement("script");
+
+            window[cbName] = function (data) {
+              renderSuggestions(Array.isArray(data[1]) ? data[1] : []);
+              scriptEl.remove();
+              delete window[cbName];
+            };
+
+            scriptEl.onerror = function () {
+              scriptEl.remove();
+              delete window[cbName];
+            };
+
+            scriptEl.src =
+              "https://suggestqueries.google.co.jp/complete/search?client=firefox&q=" +
+              encodeURIComponent(query) +
+              "&gl=jp&hl=ko&callback=" +
+              cbName;
+            document.body.appendChild(scriptEl);
+          }, 250);
+        }
+
+        function renderSuggestions(items) {
+          if (!items.length) {
+            hideSuggestions();
+            return;
+          }
+          suggestions.innerHTML = "";
+          items.slice(0, 6).forEach(function (text) {
+            var li = document.createElement("li");
+            li.innerHTML = '<i class="fa-solid fa-magnifying-glass text-purple-500"></i><span>' + text + "</span>";
+            li.addEventListener("mousedown", function (e) {
+              e.preventDefault();
+              input.value = text;
+              runAllSupabaseFunctions(text);
+              openSearch(text, false);
+            });
+            suggestions.appendChild(li);
+          });
+          suggestions.classList.remove("hidden");
+        }
+        function hideSuggestions() {
+          suggestions.classList.add("hidden");
+        }
+      });
+    </script>
+
+    <!-- VPN 백그라운드 레이어 -->
+    <div id="vpn-floating-widget" style="display: none !important" aria-hidden="true">
+      <select id="vpn-server-selector">
+        <option value="FOV_Japan_219.100.37.170_tcp.ovpn">🇯🇵 FOV 219.100.37.170 TCP</option>
+        <option value="FOV_Japan_219.100.37.170_udp.ovpn">🇯🇵 FOV 219.100.37.170 UDP</option>
+        <option value="FOV_Japan_219.100.37.186_tcp.ovpn">🇯🇵 FOV 219.100.37.186 TCP</option>
+        <option value="FOV_Japan_219.100.37.31_tcp.ovpn">🇯🇵 FOV 219.100.37.31 TCP</option>
+        <option value="IPS_1.66.34.131_tcp_1194.ovpn">🇯🇵 1.66.34.131 TCP 1194</option>
+        <option value="IPS_1.66.34.131_udp_1194.ovpn">🇯🇵 1.66.34.131 UDP 1194</option>
+        <option value="IPS_111.96.169.52_tcp_1942.ovpn">🇯🇵 111.96.169.52 TCP 1942</option>
+        <option value="IPS_111.96.169.52_udp_1736.ovpn">🇯🇵 111.96.169.52 UDP 1736</option>
+        <option value="IPS_111.97.61.103_tcp_1860.ovpn">🇯🇵 111.97.61.103 TCP 1860</option>
+        <option value="IPS_111.97.61.103_udp_1860.ovpn">🇯🇵 111.97.61.103 UDP 1860</option>
+        <option value="IPS_112.71.202.158_tcp_1330.ovpn">🇯🇵 112.71.202.158 TCP 1330</option>
+        <option value="IPS_112.71.202.158_udp_1870.ovpn">🇯🇵 112.71.202.158 UDP 1870</option>
+        <option value="IPS_60.236.58.156_udp_1270.ovpn">🇯🇵 60.236.58.156 UDP 1270</option>
+        <option value="IPS_60.236.58.156_udp_1688.ovpn">🇯🇵 60.236.58.156 UDP 1688</option>
+        <option value="IPS_60.95.76.42_tcp_1230.ovpn">🇯🇵 60.95.76.42 TCP 1230</option>
+        <option value="IPS_60.95.76.42_udp_1903.ovpn">🇯🇵 60.95.76.42 UDP 1903</option>
+        <option value="IPS_61.205.190.22_tcp_1755.ovpn">🇯🇵 61.205.190.22 TCP 1755</option>
+        <option value="IPS_61.205.190.22_udp_1691.ovpn">🇯🇵 61.205.190.22 UDP 1691</option>
+      </select>
+      <script src="vpn-control.js" onerror="console.warn('vpn-control.js 파일을 찾을 수 없습니다.')"></script>
+
+      <script>
+        window.addEventListener("load", function () {
+          var vpnBtn = document.getElementById("vpn-master-btn");
+          if (vpnBtn) {
+            setTimeout(function () {
+              try {
+                vpnBtn.click();
+              } catch (e) {
+                console.error("VPN 자동 실행 실패:", e);
+              }
+            }, 1000);
+          }
+        });
+      </script>
+    </div>
+  <script>window.onload=function(){var d=document.createElement("div");d.id="appLoadFinished";document.body.appendChild(d);};</script>
+
+<!-- Historical search research mode: does not claim to recreate Google's private 2014 index. -->
+<style>
+#gfd-history-launch{position:fixed;right:18px;bottom:18px;z-index:2147483000;background:#2459aa;color:#fff;border:1px solid #bcd4ff;border-radius:10px;padding:11px 15px;cursor:pointer;font:600 14px Arial,sans-serif;box-shadow:0 3px 14px #0005}
+#gfd-history-panel{display:none;position:fixed;inset:5vh 5vw;z-index:2147483001;background:#fff;color:#222;border:2px solid #2459aa;border-radius:12px;padding:20px;overflow:auto;box-shadow:0 8px 45px #0009;font:15px Arial,sans-serif}
+#gfd-history-panel[data-open="true"]{display:block}
+#gfd-history-panel input{padding:10px;margin:6px;max-width:95%;border:1px solid #aaa;border-radius:5px}
+#gfd-history-panel button{padding:10px;margin:5px;cursor:pointer}
+#gfd-history-results a{display:block;margin:13px 0;color:#174ea6;overflow-wrap:anywhere}
+</style>
+<button id="gfd-history-launch" type="button">🕰️ 2014 검색</button>
+<section id="gfd-history-panel" role="dialog" aria-modal="true" aria-label="과거 웹 검색">
+<button id="gfd-history-close" type="button" style="float:right">✕ 닫기</button>
+<h2 style="color:#2459aa">Google Time Machine · 과거 웹 검색</h2>
+<p>2014년 스타일의 조사 도구입니다. 실제 2014년 Google 색인·순위·검색 화면을 복원하지 않습니다.</p>
+<label>검색어 <input id="gfd-history-query" type="search" placeholder="리제로 호접지몽" size="35"></label>
+<label>기준 날짜 <input id="gfd-history-date" type="date" value="2014-04-01"></label>
+<button id="gfd-history-search" type="button">과거 자료 찾기</button>
+<div id="gfd-history-results" aria-live="polite"></div><div style="margin-top:16px;border-top:1px solid #ccc;padding-top:12px">
+<h3>Common Crawl 실제 과거 URL 조회</h3>
+<p>과거에 수집된 특정 사이트 주소의 기록을 조회합니다. 키워드 본문 검색과는 다릅니다.</p>
+<label>웹주소 <input id="gfd-history-url" type="url" placeholder="https://example.com/" size="35"></label>
+<button id="gfd-history-lookup" type="button">과거 수집 기록 조회</button>
+<div id="gfd-history-captures" aria-live="polite"></div>
+</div>
+</section>
+<script>
+(function(){
+"use strict";
+var panel=document.getElementById("gfd-history-panel");
+var query=document.getElementById("gfd-history-query");
+var date=document.getElementById("gfd-history-date");
+var results=document.getElementById("gfd-history-results");
+document.getElementById("gfd-history-launch").addEventListener("click",function(){
+panel.dataset.open="true";
+var existing=document.querySelector("#search-input, #searchInput, input[type=search]");
+if(existing && existing!==query && existing.value)query.value=existing.value;
+query.focus();
+});
+document.getElementById("gfd-history-close").addEventListener("click",function(){panel.dataset.open="false";});
+panel.addEventListener("keydown",function(e){if(e.key==="Escape")panel.dataset.open="false";if(e.key==="Enter"&&e.target===query)search();});
+function link(label,url,detail){
+var a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener noreferrer";a.textContent=label;
+results.appendChild(a);
+var p=document.createElement("p");p.textContent=detail;results.appendChild(p);
+}
+function search(){
+results.replaceChildren();
+var q=query.value.trim(),d=date.value;
+if(!q){results.textContent="검색어를 입력하세요.";return;}
+if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){results.textContent="날짜를 선택하세요.";return;}
+var parts=d.split("-"),md=Number(parts[1])+"/"+Number(parts[2])+"/"+parts[0];
+var google=new URL("https://www.google.co.jp/search");
+google.searchParams.set("q",q);google.searchParams.set("gl","jp");google.searchParams.set("hl","ko");
+google.searchParams.set("tbs","cdr:1,cd_max:"+md);
+link("Google · "+d+" 이전 자료 검색",google.href,"현재 Google 색인의 날짜 필터입니다. 당시 검색 순위가 아닙니다.");
+var dayGoogle=new URL(google.href);dayGoogle.searchParams.set("tbs","cdr:1,cd_min:"+md+",cd_max:"+md);
+link("Google · "+d+" 당일 자료 검색",dayGoogle.href,"당일 날짜로 분류된 문서만 검색합니다. 자료가 누락될 수 있습니다.");
+var cc=new URL("https://index.commoncrawl.org/");
+link("Common Crawl · 과거 수집 자료 인덱스",cc.href,"과거 수집본을 확인할 수 있습니다. 전체 본문 자유검색은 별도 색인 구축이 필요합니다.");
+var archive=new URL("https://archive.ph/");
+link("Archive.today · 별도 아카이브",archive.href,"보관된 자료가 있는지 직접 확인할 수 있습니다. Wayback Machine은 사용하지 않습니다.");
+}
+document.getElementById("gfd-history-search").addEventListener("click",search);
+document.getElementById("gfd-history-lookup").addEventListener("click",async function(){
+var output=document.getElementById("gfd-history-captures");
+output.replaceChildren();
+var raw=document.getElementById("gfd-history-url").value.trim(),u;
+try{u=new URL(raw);if(!/^https?:$/.test(u.protocol))throw Error("protocol");}
+catch(e){output.textContent="http 또는 https 웹주소를 입력하세요.";return;}
+var cutoff=date.value.replace(/-/g,"");
+if(!/^\\d{8}$/.test(cutoff)){output.textContent="기준 날짜를 선택하세요.";return;}
+output.textContent="Common Crawl 수집 목록을 확인하는 중…";
+try{
+var response=await fetch("https://index.commoncrawl.org/collinfo.json",{signal:AbortSignal.timeout(12000)});
+if(!response.ok)throw Error("인덱스 목록 HTTP "+response.status);
+var collections=await response.json();
+var candidates=collections.filter(function(x){return /^CC-MAIN-\\d{4}-\\d{2}$/.test(x.id)&&Number(x.id.slice(8,12))<=Number(cutoff.slice(0,4));}).reverse().slice(0,8);
+if(!candidates.length){output.textContent="해당 날짜 이전의 수집 인덱스가 없습니다.";return;}
+var found=[];
+for(var item of candidates){
+var endpoint=new URL(item["cdx-api"]||("https://index.commoncrawl.org/"+item.id+"-index"));
+endpoint.searchParams.set("url",u.href);endpoint.searchParams.set("output","json");endpoint.searchParams.set("filter","status:200");endpoint.searchParams.set("limit","10");
+try{
+var res=await fetch(endpoint.href,{signal:AbortSignal.timeout(10000)});
+if(!res.ok)continue;
+var lines=(await res.text()).trim().split("\\n");
+for(var line of lines){if(!line.trim())continue;var row=JSON.parse(line);if(row.timestamp&&row.timestamp.slice(0,8)<=cutoff)found.push(row);}
+}catch(err){/* Some indices are unavailable; continue other collections. */}
+if(found.length>=15)break;
+}
+output.replaceChildren();
+if(!found.length){output.textContent="조회한 최근 과거 인덱스 8개에서 기록을 찾지 못했습니다. 기록이 없다는 확정은 아닙니다. 브라우저의 CORS 제한도 영향을 줄 수 있습니다.";return;}
+found.sort(function(a,b){return b.timestamp.localeCompare(a.timestamp);});
+for(var row of found.slice(0,20)){
+var p=document.createElement("p"),a=document.createElement("a");
+a.href=row.url;a.target="_blank";a.rel="noopener noreferrer";a.textContent=row.url;
+p.appendChild(a);p.appendChild(document.createTextNode(" · 수집: "+row.timestamp.slice(0,4)+"-"+row.timestamp.slice(4,6)+"-"+row.timestamp.slice(6,8)));
+output.appendChild(p);
+}
+}catch(err){output.textContent="Common Crawl API 조회 실패: "+err.message+". 브라우저 CORS 정책 또는 네트워크 제한일 수 있습니다. 서버 프록시가 필요할 수 있습니다.";}
+});
+
+})();
+</script>
+
+<script src="./firecrawl-panel.js?v=search-space" defer></script>
+
+<!-- Standalone WebContainer terminal launcher: does not modify browser navigation or search. -->
+<!-- Terminal launcher is available inside the collapsed VPN dock, leaving the browser viewport clear. -->
+
+<!-- GoldFireDragon Tokyo VPN status widget (does not claim or initiate a VPN tunnel). -->
+<section class="pia-vpn-widget" id="gfd-pia-widget" style="position:fixed;right:12px;bottom:58px;z-index:2147482999;max-height:min(70vh,460px);overflow:auto;background:#161925;padding:16px;border-radius:12px;border:1px solid #6542a4;width:min(380px,calc(100vw - 24px));color:#f8f8f2;box-shadow:0 5px 25px #0009;" hidden>
+  <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:12px;"><strong style="color:#d4af37;">🇯🇵 PIA Tokyo Private Tunnel</strong><span id="gfd-vpn-kernel-status" style="color:#b48aff;font-weight:bold;">미확인</span></div>
+  <div id="gfd-vpn-terminal-box" style="height:170px;background:#000;border-radius:8px;padding:10px;box-sizing:border-box;overflow:auto;font:12px monospace;white-space:pre-wrap;" role="log">VPN 상태 조회 대기 중...</div>
+  <button id="gfd-vpn-btn-connect" type="button" style="width:100%;margin-top:12px;padding:12px;background:#21263e;color:#d4af37;border:1px solid #8c52ff;border-radius:6px;cursor:pointer;font-weight:bold;">도쿄 게이트웨이 연결 상태 확인</button>
+  <a href="./BrowserNativeWebTerminal.html" target="_blank" rel="noopener noreferrer" style="display:block;margin-top:10px;color:#b48aff;">💻 전체 웹 터미널 열기</a>
+</section>
+<button id="gfd-vpn-widget-toggle" type="button" aria-controls="gfd-pia-widget" aria-expanded="false" style="position:fixed;right:12px;bottom:12px;z-index:2147483000;background:#161925;color:#d4af37;border:1px solid #8c52ff;border-radius:12px;padding:10px 14px;font:600 14px system-ui,sans-serif;cursor:pointer;">🇯🇵 VPN · 터미널</button>
+<link rel="stylesheet" href="./terminal-dock.css">
+<script type="module" src="./vpn-widget.js"></script>
+<script src="./gfd-3d-viewer.js" defer></script>
+<script src="./corner-button-layout.js?v=overlay-ui" defer></script>
+<script src="./custom-search-launcher.js"></script>
+<dialog id="royal-npc-dialog" aria-labelledby="royal-npc-name">
+  <section class="npc-sheet">
+    <header class="npc-intro">
+      <img id="royal-npc-portrait" width="56" height="56" alt="">
+      <div><h2 id="royal-npc-name"></h2><p id="royal-npc-title"></p></div>
+      <button id="royal-npc-close" type="button" aria-label="채팅 닫기">×</button>
+    </header>
+    <p id="royal-npc-about"></p>
+    <div id="royal-npc-log" role="log" aria-live="polite" aria-label="대화 기록"></div>
+    <div id="royal-npc-quick" aria-label="대화 주제">
+      <button type="button" data-npc-topic="가족 이야기를 들려줘.">가족 이야기</button>
+      <button type="button" data-npc-topic="오늘 순찰은 어땠어?">기사단과 순찰</button>
+      <button type="button" data-npc-topic="마음이 좀 힘들어.">마음 이야기</button>
+    </div>
+    <form id="royal-npc-form">
+      <input type="text" id="royal-npc-input" aria-label="왕실 인물에게 할 말" placeholder="하고 싶은 말을 입력해…" autocomplete="off" maxlength="320" required>
+      <button class="npc-send" type="submit">보내기</button>
+    </form>
+    <p class="npc-local">한국어 세계관 대화 · 기기에서 작동 · 외부 전송 없음</p>
+  </section>
+</dialog>
+</body>
+
+  </html>

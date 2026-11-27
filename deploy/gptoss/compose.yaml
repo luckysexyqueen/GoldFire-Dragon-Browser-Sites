@@ -1,0 +1,23 @@
+services:
+  model:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    restart: unless-stopped
+    volumes:
+      - ./gptossuncensor20blora.gguf:/models/gptossuncensor20blora.gguf:ro
+      - cache:/cache
+    environment:
+      LLAMA_CACHE: /cache
+      LLAMA_ARG_API_KEY: ${MODEL_API_KEY:?Set MODEL_API_KEY}
+    command: ["-hf", "unsloth/gpt-oss-20b-GGUF:UD-Q4_K_XL", "--lora", "/models/gptossuncensor20blora.gguf", "--alias", "goldfire-gptoss-lora", "--host", "0.0.0.0", "--port", "8080", "-c", "4096"]
+  https:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      MODEL_DOMAIN: ${MODEL_DOMAIN:?Set MODEL_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - certs:/data
+volumes:
+  cache:
+  certs:

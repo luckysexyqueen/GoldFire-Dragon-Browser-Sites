@@ -1,0 +1,4 @@
+ExecuTorch WebGPU runtime by the PyTorch project and contributors.
+Source: executorch-community/ExecuTorch-WebGPU-Runtime, revision
+ebf0ed99c94162c6a273f06361a0d607227d81e8. The loader is exposed as an ES
+module default export. The WASM binary is unchanged. See LICENSE and THIRD_PARTY_NOTICES.txt.

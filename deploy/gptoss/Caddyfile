@@ -1,0 +1,19 @@
+{$MODEL_DOMAIN} {
+  @allowed path /v1/models /lora-adapters /v1/chat/completions
+  handle @allowed {
+    @options method OPTIONS
+    header {
+      >Access-Control-Allow-Origin "https://goldfire-dragon-browser.lucky01359.chatgpt.site"
+      >Access-Control-Allow-Headers "Authorization, Content-Type"
+      >Access-Control-Allow-Methods "GET, POST, OPTIONS"
+    }
+    respond @options 204
+    @mutateAdapters {
+      path /lora-adapters
+      method POST
+    }
+    respond @mutateAdapters 405
+    reverse_proxy model:8080
+  }
+  respond 404
+}

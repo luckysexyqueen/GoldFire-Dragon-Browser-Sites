@@ -1,0 +1,27 @@
+#royal-npc-markers { position:absolute; inset:0; z-index:2; pointer-events:none; }
+#royal-npc-markers button { position:absolute; transform:translate(-50%,-110%); border:1px solid #deb978; background:#1d1027e8; color:#fff4dd; padding:.28rem .55rem; border-radius:999px; white-space:nowrap; font:700 .84rem/1.2 system-ui,sans-serif; box-shadow:0 2px 6px #170f22; cursor:pointer; pointer-events:auto; }
+#royal-npc-markers button:disabled { opacity:.77; pointer-events:none; }
+#royal-npc-markers [hidden], #royal-npc-actions[hidden], #royal-npc-actions [hidden] { display:none; }
+#royal-npc-actions { display:grid; gap:.24rem; margin-top:.32rem; }
+#royal-npc-actions button { border:1px solid #a584b9; border-radius:.55rem; color:#fff2ff; background:#39214f; font:650 .80rem/1.2 system-ui,sans-serif; min-height:2.5rem; padding:.32rem; cursor:pointer; }
+#royal-npc-dialog { color:#f8efff; border:1px solid #b99267; border-radius:1.15rem; width:min(91vw,37rem); max-height:calc(100dvh - 1.5rem); padding:0; overflow:auto; color-scheme:dark; background:#201429; box-shadow:0 18px 58px #100713a0; font:500 1rem/1.5 system-ui,sans-serif; }
+#royal-npc-dialog::backdrop { background:#10081eb7; }
+.npc-sheet { padding:clamp(.78rem,2.6vw,1.25rem); display:grid; gap:.72rem; }
+.npc-intro { display:grid; grid-template-columns:3.5rem 1fr auto; align-items:center; gap:.72rem; }
+#royal-npc-portrait { width:3.5rem; height:3.5rem; object-fit:cover; border-radius:.85rem; border:1px solid #ccab70; }
+#royal-npc-name { color:#fff0cc; margin:0; font-size:1.13rem; line-height:1.22; }
+#royal-npc-title { margin:.17rem 0 0; color:#d9c8e6; line-height:1.25; font-size:.83rem; }
+#royal-npc-close { font-size:1.3rem; }
+#royal-npc-about { color:#d6c6e2; margin:0; font-size:.88rem; }
+#royal-npc-log { height:clamp(7.4rem,31dvh,16rem); overflow:auto; overscroll-behavior:contain; display:flex; flex-direction:column; gap:.44rem; padding:.55rem; border:1px solid #533e66; border-radius:.75rem; background:#171022; }
+#royal-npc-log p { flex-shrink:0; max-width:88%; margin:0; padding:.45rem .68rem; border-radius:.7rem; word-break:break-word; overflow-wrap:anywhere; font-size:.94rem; }
+.npc-msg-character { align-self:flex-start; color:#fff0dd; background:#3a2949; }
+.npc-msg-user { align-self:flex-end; color:#191020; background:#d9bae9; }
+#royal-npc-quick { display:flex; flex-wrap:wrap; gap:.32rem; }
+#royal-npc-dialog button { color:#fbf1ff; border:1px solid #805b9a; background:#3c2355; border-radius:.53rem; padding:.32rem .58rem; cursor:pointer; min-height:2.1rem; font-family:inherit; }
+#royal-npc-dialog button:focus-visible,#royal-npc-actions button:focus-visible { outline:2px solid #ffd686; outline-offset:2px; }
+#royal-npc-dialog .npc-send { background:#f0cc82; color:#271837; font-weight:750; min-width:3.88rem; }
+#royal-npc-form { display:flex; gap:.42rem; }
+#royal-npc-input { width:100%; min-width:0; min-height:2.5rem; border:1px solid #9a7bad; border-radius:.52rem; padding:0 .55rem; color:#fff; font:inherit; background:#261831; }
+#royal-npc-dialog .npc-local { margin:0; color:#c6b3d4; font-size:.78rem; }
+@media (max-height:560px) { .npc-sheet{gap:.40rem} #royal-npc-about{display:none} #royal-npc-log{height:min(8rem,30dvh)} }

@@ -1,0 +1,15 @@
+This repository contains a modified version of Qwen/Qwen3-0.6B.
+
+Modifications by Meta Platforms, Inc.: conversion to the ExecuTorch program format (.pte) for the
+ExecuTorch WebGPU backend, and quantization as described in README.md.
+
+The original work and these modifications are distributed under the license in LICENSE.
+
+GoldFire Dragon Browser loads this model from its own static assets. Its learned
+parameters come from mlabonne/Qwen3-0.6B-abliterated, revision
+41f8d678c35975a24212ba092993ac034e2fccdc, quantized with PyTorch in groups of
+64. The ExecuTorch graph comes from executorch-community/Qwen3-0.6B-ExecuTorch-WebGPU
+at revision 65fa8ec0b8996b4a0157cdb89ea766b000b1134a. The browser uses 2048
+KV positions. The tokenizer accompanies the abliterated PyTorch checkpoint.
+
+The final decoder block also incorporates a GoldFire Korean dialogue adaptation trained with PyTorch.
