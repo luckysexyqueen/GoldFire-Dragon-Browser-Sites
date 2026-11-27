@@ -286,7 +286,10 @@ const packagedRegistry = {
       const url = new URL('registry.json', base);
       try {
         manager = await runtime.loadRegistry(url.href, { storage, credentials: url.origin === location.origin ? 'same-origin' : 'omit' });
-      } catch { manager = runtime.createManager([], storage); }
+      } catch {
+        const fallbackCatalog = runtime.parseRegistry(packagedRegistry).map(plugin => ({ ...plugin, autoEnable: false }));
+        manager = runtime.createManager(fallbackCatalog, storage);
+      }
     }
     return withUserPlugins(manager, storage);
   }).catch(() => fallback).then(manager => {
