@@ -27,6 +27,10 @@ jobs:
           unzip -q "$RUNNER_TEMP/goldfire.zip" -d "$RUNNER_TEMP/goldfire"
           rm -rf -- "$RUNNER_TEMP/goldfire/.github"
           test -s "$RUNNER_TEMP/goldfire/goldfire-version.json"
+          # Reviewed frontend-only delta from the pinned Sites 120 source commit.
+          printf '%s' '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' | base64 -d | gzip -d > "$RUNNER_TEMP/v120.patch"
+          git -C "$RUNNER_TEMP/goldfire" apply --check -p3 "$RUNNER_TEMP/v120.patch"
+          git -C "$RUNNER_TEMP/goldfire" apply -p3 "$RUNNER_TEMP/v120.patch"
           curl -fsSL --retry 3 "https://registry.npmjs.org/three/-/three-0.181.2.tgz" -o "$RUNNER_TEMP/three.tgz"
           python - "$RUNNER_TEMP/goldfire" "$RUNNER_TEMP/three.tgz" <<'PY'
           import base64
@@ -60,23 +64,33 @@ jobs:
           search.write_text(page.replace(old,'href="css/reset.css"'))
           (search.parent/'css/reset.css').write_text('/* Pages local reset for the custom search home. */\nhtml,body,header,footer,main,form,p{margin:0;padding:0;border:0}header,footer,main{display:block}button,input{font:inherit}img,svg{vertical-align:middle}\n')
           assert b'from \'./three.core.js\'' in (base/'gfd-three.module.js').read_bytes()
-          # Pages can recover built-ins from the reviewed registry shipped in this exact release.
-          plugin = base/'plugins/boot.js'
-          js = plugin.read_text()
-          old = '} catch { manager = runtime.createManager([], storage); }'
-          new = '''} catch {
-                  const fallbackCatalog = runtime.parseRegistry(packagedRegistry).map(plugin => ({ ...plugin, autoEnable: false }));
-                  manager = runtime.createManager(fallbackCatalog, storage);
-                }'''
-          assert js.count(old) == 1
-          embedded = js.split('const packagedRegistry = ',1)[1].split(';\n',1)[0]
-          assert json.loads(embedded) == json.loads((base/'plugins/registry.json').read_text())
-          plugin.write_text(js.replace(old, new))
+          # Fall back to the packaged catalog on Pages without losing v120 retry behavior.
+          old = '    let catalog = runtime.createManager([], storage);'
+          new = '''    const fallbackCatalog = runtime.parseRegistry(packagedRegistry).map(plugin => ({ ...plugin, autoEnable: false }));
+              let catalog = runtime.createManager(fallbackCatalog, storage);'''
+          registry = json.loads((base/'plugins/registry.json').read_text())
+          for name in ['plugins/boot.js', 'plugins/boot-source.js', 'public/plugins/boot.js']:
+              plugin = base/name
+              js = plugin.read_text()
+              assert js.count(old) == 1
+              if 'const packagedRegistry = {' in js:
+                  embedded = js.split('const packagedRegistry = ',1)[1].split(';\n',1)[0]
+                  assert json.loads(embedded) == registry
+              js = js.replace(old, new)
+              js = js.replace("loaded ? 'ready' : loading ? 'loading' : 'error'", "loaded ? 'ready' : loading ? 'loading' : 'fallback'")
+              js = js.replace("'기본 플러그인 목록을 불러오지 못했습니다.'", "'기본 제공 목록을 표시합니다. 최신 목록을 다시 불러올 수 있습니다.'")
+              plugin.write_text(js)
+          for name in ['plugins/installer.mjs', 'public/plugins/installer.mjs']:
+              installer = base/name
+              js = installer.read_text().replace("manager.catalogState?.() === 'error'", "manager.catalogState?.() === 'fallback'")
+              installer.write_text(js.replace("'기본 플러그인 목록을 불러오지 못했습니다.'", "'기본 제공 목록을 표시합니다. 최신 목록을 다시 불러올 수 있습니다.'"))
           for name in ['index.html','GoldFireDragonBrowser.html']:
               entry=base/name
               html=entry.read_text()
-              assert html.count('plugins/boot.js?v=skills')==1
-              entry.write_text(html.replace('plugins/boot.js?v=skills','plugins/boot.js?v=118-pages2'))
+              assert html.count('?v=catalog-retry')==2
+              entry.write_text(html.replace('?v=catalog-retry','?v=120-pages1'))
+          version = {'version':120,'sitesCommit':'088bab07cda007957c4e2cfcd8404f51e280a1e7','package':'github-pages'}
+          (base/'goldfire-version.json').write_text(json.dumps(version,indent=2)+'\n')
           PY
           python -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); d=json.loads(p.read_text()); d.update(start_url="./",scope="./"); p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+"\n")' "$RUNNER_TEMP/goldfire/manifest.json"
           test -s "$RUNNER_TEMP/goldfire/google-custom-search-engine/index.html"
@@ -96,7 +110,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           if ! git diff --cached --quiet; then
-            git commit -m "Publish GoldFire static website version 118"
+            git commit -m "Publish GoldFire static website version 120"
             git push origin HEAD:refs/heads/site-files
           fi
       - uses: actions/upload-pages-artifact@v4
