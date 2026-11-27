@@ -31,6 +31,7 @@ jobs:
           python - "$RUNNER_TEMP/goldfire" "$RUNNER_TEMP/three.tgz" <<'PY'
           import base64
           import hashlib
+          import json
           import pathlib
           import re
           import sys
@@ -59,6 +60,23 @@ jobs:
           search.write_text(page.replace(old,'href="css/reset.css"'))
           (search.parent/'css/reset.css').write_text('/* Pages local reset for the custom search home. */\nhtml,body,header,footer,main,form,p{margin:0;padding:0;border:0}header,footer,main{display:block}button,input{font:inherit}img,svg{vertical-align:middle}\n')
           assert b'from \'./three.core.js\'' in (base/'gfd-three.module.js').read_bytes()
+          # Pages can recover built-ins from the reviewed registry shipped in this exact release.
+          plugin = base/'plugins/boot.js'
+          js = plugin.read_text()
+          old = '} catch { manager = runtime.createManager([], storage); }'
+          new = '''} catch {
+                  const fallbackCatalog = runtime.parseRegistry(packagedRegistry).map(plugin => ({ ...plugin, autoEnable: false }));
+                  manager = runtime.createManager(fallbackCatalog, storage);
+                }'''
+          assert js.count(old) == 1
+          embedded = js.split('const packagedRegistry = ',1)[1].split(';\n',1)[0]
+          assert json.loads(embedded) == json.loads((base/'plugins/registry.json').read_text())
+          plugin.write_text(js.replace(old, new))
+          for name in ['index.html','GoldFireDragonBrowser.html']:
+              entry=base/name
+              html=entry.read_text()
+              assert html.count('plugins/boot.js?v=skills')==1
+              entry.write_text(html.replace('plugins/boot.js?v=skills','plugins/boot.js?v=118-pages2'))
           PY
           python -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); d=json.loads(p.read_text()); d.update(start_url="./",scope="./"); p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+"\n")' "$RUNNER_TEMP/goldfire/manifest.json"
           test -s "$RUNNER_TEMP/goldfire/google-custom-search-engine/index.html"
