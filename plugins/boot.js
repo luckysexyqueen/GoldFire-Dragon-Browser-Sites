@@ -279,19 +279,36 @@ const packagedRegistry = {
     try { storage = window.localStorage; } catch { /* Try IndexedDB below. */ }
     try { database = window.indexedDB; } catch { /* Memory fallback. */ }
     storage = await runtime.createPreferenceStorage({ storage, indexedDB: database });
-    let manager;
     if (!/^https?:$/.test(window.location.protocol)) {
-      manager = runtime.createManager(runtime.parseRegistry(packagedRegistry), storage);
-    } else {
-      const url = new URL('registry.json', base);
-      try {
-        manager = await runtime.loadRegistry(url.href, { storage, credentials: url.origin === location.origin ? 'same-origin' : 'omit' });
-      } catch {
-        const fallbackCatalog = runtime.parseRegistry(packagedRegistry).map(plugin => ({ ...plugin, autoEnable: false }));
-        manager = runtime.createManager(fallbackCatalog, storage);
-      }
+      return withUserPlugins(runtime.createManager(runtime.parseRegistry(packagedRegistry), storage), storage);
     }
-    return withUserPlugins(manager, storage);
+    const url = new URL('registry.json', base);
+    const fallbackCatalog = runtime.parseRegistry(packagedRegistry).map(plugin => ({ ...plugin, autoEnable: false }));
+    let catalog = runtime.createManager(fallbackCatalog, storage);
+    let loaded = false, loading;
+    function retryCatalog() {
+      if (loaded || loading) return loading;
+      loading = runtime.loadRegistry(url.href, { storage, credentials: url.origin === location.origin ? 'same-origin' : 'omit' })
+        .then(result => { catalog = result; loaded = true; })
+        .catch(() => { /* 설치 항목은 계속 사용하고 다음 요청에서 다시 시도합니다. */ })
+        .finally(() => {
+          loading = null;
+          window.dispatchEvent(new CustomEvent('gfd:catalog-updated'));
+          if (loaded) window.dispatchEvent(new CustomEvent('gfd:plugins-changed'));
+        });
+      window.dispatchEvent(new CustomEvent('gfd:catalog-updated'));
+      return loading;
+    }
+    await retryCatalog();
+    window.addEventListener('online', retryCatalog);
+    return withUserPlugins({
+      list: () => catalog.list(),
+      setEnabled: (id, enabled) => catalog.setEnabled(id, enabled),
+      flushPreferences: () => catalog.flushPreferences(),
+      extendInstructions: value => catalog.extendInstructions(value),
+      catalogState: () => loaded ? 'ready' : loading ? 'loading' : 'fallback',
+      retryCatalog
+    }, storage);
   }).catch(() => fallback).then(manager => {
     window.GFDPlugins = manager;
     window.dispatchEvent(new CustomEvent('gfd:plugins-ready'));
@@ -322,8 +339,17 @@ const packagedRegistry = {
       section.replaceChildren();
       const note = document.createElement('p');
       note.className = 'note';
-      note.textContent = plugins.length ? '플러그인은 자동 등록됩니다. 추가 채팅 지침은 직접 켜세요. 서버 도구는 별도 연결이 필요합니다.' : '플러그인 목록을 불러오지 못했습니다. 기존 기능은 계속 사용할 수 있습니다.';
+      note.textContent = plugins.length ? '플러그인은 자동 등록됩니다. 추가 채팅 지침은 직접 켜세요. 서버 도구는 별도 연결이 필요합니다.' : '등록된 플러그인이 없습니다.';
       section.append(note);
+      if (manager.catalogState && manager.catalogState() !== 'ready') {
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.disabled = manager.catalogState() === 'loading';
+        note.textContent = retry.disabled ? '기본 플러그인 목록을 불러오는 중…' : '기본 제공 목록을 표시합니다. 최신 목록을 다시 불러올 수 있습니다.';
+        retry.textContent = '목록 다시 불러오기';
+        retry.onclick = manager.retryCatalog;
+        section.append(retry);
+      }
       for (const plugin of plugins) {
         const article = document.createElement('article');
         const title = document.createElement('strong');
@@ -358,6 +384,7 @@ const packagedRegistry = {
         section.append(article);
       }
     }
+    window.addEventListener('gfd:catalog-updated', render);
     render();
     shadow.append(style, details);
     document.documentElement.append(host);

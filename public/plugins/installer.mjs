@@ -32,6 +32,7 @@ shadow.innerHTML = `
       <a id="sample" download="답변-첫줄-요약.json">예제 플러그인 받기</a>
       <p class="status" role="status" aria-live="polite"></p>
       <h3 id="installedTitle">직접 설치한 플러그인</h3><div id="installed"></div>
+      <div id="catalogProblem" hidden><p role="status" id="catalogMessage"></p><button type="button" id="retryCatalog">목록 다시 불러오기</button></div>
       <details id="bundled"><summary>기본 플러그인</summary><div id="catalog"></div></details>
     </section>
   </dialog>`;
@@ -85,6 +86,10 @@ function render() {
   get('installed').replaceChildren(...installed.map(row));
   if (!installed.length) get('installed').textContent = '아직 설치한 ' + (kind === 'skill' ? '스킬이' : '플러그인이') + ' 없습니다.';
   const catalog = all.filter(item=>!item.custom);
+  const catalogState = manager.catalogState?.() || 'ready';
+  get('catalogProblem').hidden = kind === 'skill' || catalogState === 'ready';
+  get('retryCatalog').disabled = catalogState === 'loading';
+  get('catalogMessage').textContent = catalogState === 'loading' ? '기본 플러그인 목록을 불러오는 중…' : '기본 제공 목록을 표시합니다. 최신 목록을 다시 불러올 수 있습니다.';
   get('bundled').hidden = kind === 'skill' || !catalog.length;
   get('catalog').replaceChildren(...catalog.map(row));
 }
@@ -129,11 +134,16 @@ async function openLibrary(nextKind) {
   example.textContent = '예제 ' + label + ' 받기';
   get('categories').hidden = true; get('library').hidden = false;
   status.textContent = '설치 목록을 여는 중…';
-  await change(async () => { status.textContent = ''; });
+  await change(async () => {
+    status.textContent = '';
+    if (!skill && manager.catalogState?.() === 'fallback') manager.retryCatalog();
+  });
   get('file').focus();
 }
 get('custom').onclick = () => openLibrary('plugin');
 get('skills').onclick = () => openLibrary('skill');
+get('retryCatalog').onclick = () => manager?.retryCatalog();
+window.addEventListener('gfd:catalog-updated', render);
 get('file').onchange = () => {
   const file = get('file').files[0];
   get('file').value = '';
