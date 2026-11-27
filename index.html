@@ -142,7 +142,8 @@
     <script src="./inapp-browser.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#10a37f" />
-    <script defer src="./plugins/boot.js?v=rooms"></script>
+    <script defer src="./plugins/boot.js?v=skills"></script>
+    <script type="module" src="./plugins/installer.mjs?v=skills"></script>
 <script type="module" src="./ai/boot.mjs?v=gptfast64"></script>
     <script>
       (function () {
@@ -1776,6 +1777,7 @@
             골드파이어드래곤브라우저
           </div>
           <a id="gfd-custom-search-home" href="./google-custom-search-engine/index.html" class="input-box-btn" style="height:32px;color:#fff;display:inline-flex;align-items:center;padding:0 10px;white-space:nowrap" title="Google 맞춤검색">맞춤검색</a>
+          <button type="button" class="input-box-btn" data-gfd-generation-settings aria-haspopup="dialog" style="min-width:max-content;color:#fff">생성 설정</button>
           <button id="vpn-settings-btn" class="input-box-btn" style="height:32px;color:#fff" title="VPN 설정" >VPN 설정</button>
           <button
             id="brow-reload"
@@ -3189,17 +3191,18 @@
               return true;
             }
           }
+          const pluginManager = await window.GFDPluginsReady;
+          const pluginInstructions = pluginManager?.extendInstructions?.(instructions) || instructions;
           if (roleplayOnly) {
             if (chatAttachments.some(item => item.type === "image")) throw new Error("역할극 텍스트 모델은 이미지 분석을 지원하지 않습니다.");
             const documents = await collectKnowledge(chatAttachments,gptFiles,currentMsgs);
             const answer = await ai.generatePyTorch({
               roleplayOnly, cacheScope:convId, signal:reply.controller.signal, messages:currentMsgs.map(({role,content}) => ({role,content})),
-              systemPrompt:sysPrompt, instructions, documents, onToken:token => pushText(reply.text + token)
+              systemPrompt:sysPrompt, instructions:pluginInstructions, documents, onToken:token => pushText(reply.text + token)
             });
             await finish(answer);
             return true;
           }
-          const pluginInstructions = window.GFDPlugins?.extendInstructions?.(instructions) || instructions;
           const inferenceInstructions = ai.extendInstructions?.(pluginInstructions) || pluginInstructions;
           const useTorch = modelId === torchModelId || (!modelId && mode === "pytorch");
           const useKoGPT2 = modelId === kogpt2ModelId;
@@ -3935,6 +3938,7 @@
                 ${iconSvg("MessageSquare", 20)}<span id="chat-room-title">${escHtml(currentRoomTitle())}</span>
               </div>
               <div class="header-right">
+                <button type="button" class="input-box-btn" data-gfd-generation-settings aria-haspopup="dialog" style="min-width:max-content">생성 설정</button>
                 <button class="browser-toggle-btn ${S.browserOpen ? "active" : ""}" id="btn-open-browser" title="브라우저 열기/닫기">
                   🌐
                 </button>

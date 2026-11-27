@@ -77,16 +77,29 @@ async function createPreferenceStorage({ storage, indexedDB, timeout = 1500 } = 
       transaction.onerror = transaction.onabort = () => reject(transaction.error || Error('Storage read failed'));
     });
   } catch { if (database) database.close(); database = null; }
+  function persist(key, value) {
+    if (!database) return Promise.reject(Error('플러그인을 저장할 공간을 열 수 없습니다.'));
+    const result = pending.then(() => new Promise((resolve, reject) => {
+      const tx = database.transaction('preferences', 'readwrite');
+      const store = tx.objectStore('preferences');
+      if (value === null) store.delete(key); else store.put(value, key);
+      tx.oncomplete = resolve;
+      tx.onerror = tx.onabort = () => reject(Error('플러그인을 저장할 공간을 확인하세요.'));
+    }));
+    pending = result.catch(() => {});
+    return result;
+  }
   return {
+    get length() { return values.size; },
+    key: index => [...values.keys()][index],
     getItem: key => values.get(key) ?? null,
+    async writeCustom(key, value) {
+      await persist(key, value);
+      if (value === null) values.delete(key); else values.set(key, value);
+    },
     setItem(key, value) {
       values.set(key, value);
-      if (database) pending = pending.then(() => new Promise((resolve, reject) => {
-        const transaction = database.transaction('preferences', 'readwrite');
-        transaction.objectStore('preferences').put(value, key);
-        transaction.oncomplete = resolve;
-        transaction.onerror = transaction.onabort = () => reject(transaction.error || Error('Storage write failed'));
-      })).catch(() => { /* Keep current choices usable if storage fails later. */ });
+      if (database) persist(key, value).catch(() => {});
     },
     flush: () => pending
   };
@@ -98,7 +111,14 @@ function createManager(plugins, storage) {
     try { value = storage?.getItem(`gfd-plugin:${plugin.id}:${plugin.version}`); } catch { /* private browsing */ }
     preferences.set(plugin.id, value === '1' || (value !== '0' && plugin.autoEnable));
   }
-  const list = () => plugins.map(p => ({ ...p, enabled: preferences.get(p.id) === true }));
+  const list = () => plugins.map(p => {
+    let enabled = preferences.get(p.id) === true;
+    try {
+      const saved = storage?.getItem(`gfd-plugin:${p.id}:${p.version}`);
+      if (saved === '1' || saved === '0') enabled = saved === '1';
+    } catch { /* 현재 창의 선택을 사용합니다. */ }
+    return { ...p, enabled };
+  });
   return Object.freeze({
     list,
     flushPreferences: async () => { await storage?.flush?.(); },
@@ -116,11 +136,72 @@ function createManager(plugins, storage) {
     },
   });
 }
-async function loadRegistry(url, { fetcher = fetch, storage, timeout = 4000 } = {}) {
+function withUserPlugins(base, storage) {
+  const prefix = 'gfd-installed:1:';
+  function read(id) {
+    try {
+      const row = JSON.parse(storage.getItem(prefix + id));
+      const isSkill = id.startsWith('skill/');
+      if (!row || row.id !== (isSkill ? id.slice(6) : id)) return null;
+      const plugin = normalizePlugin(row);
+      return {...plugin, id:'custom:' + id, custom:true, kind:isSkill ? 'skill' : 'plugin', enabled:row.enabled === true};
+    } catch { return null; }
+  }
+  function customList() {
+    const entries = [];
+    for (let index = 0; index < storage.length; index++) {
+      const key = storage.key(index);
+      if (key?.startsWith(prefix)) {
+        const plugin = read(key.slice(prefix.length));
+        if (plugin) entries.push(plugin);
+      }
+    }
+    return entries.sort((a, b) => a.name.localeCompare(b.name));
+  }
+  async function write(id, value) {
+    const key = prefix + id, data = value && JSON.stringify(value);
+    if (storage.writeCustom) return storage.writeCustom(key, data);
+    try {
+      if (data === null) storage.removeItem(key); else storage.setItem(key, data);
+    } catch { throw Error('플러그인을 저장할 수 없습니다. 브라우저 저장 공간을 확인하세요.'); }
+  }
+  return Object.freeze({
+    ...base,
+    list: () => [...base.list(), ...customList()],
+    async install(raw, kind = 'plugin') {
+      const plugin = normalizePlugin({...raw, autoEnable:false});
+      if (!plugin.context.trim()) throw Error('적용할 채팅 지침이 비어 있습니다.');
+      const key = kind === 'skill' ? 'skill/' + plugin.id : plugin.id;
+      if (!read(key) && customList().length >= 100) throw Error('스킬과 플러그인은 모두 합쳐 100개까지 설치할 수 있습니다.');
+      await write(key, {...plugin, enabled:false});
+      return plugin.name;
+    },
+    async configure(id, enabled) {
+      if (!id.startsWith('custom:')) {
+        if (!base.setEnabled(id, enabled)) throw Error('이 플러그인에는 적용할 지침이 없습니다.');
+        await base.flushPreferences?.();
+        return;
+      }
+      const localId = id.slice(7), plugin = read(localId);
+      if (!plugin) throw Error('설치 목록을 다시 확인하세요.');
+      await write(localId, {...plugin, id:plugin.kind === 'skill' ? localId.slice(6) : localId, enabled});
+    },
+    async uninstall(id) {
+      if (!id.startsWith('custom:')) throw Error('직접 설치한 플러그인만 삭제할 수 있습니다.');
+      await write(id.slice(7), null);
+    },
+    extendInstructions(instructions = '') {
+      const custom = customList().filter(p => p.enabled).map(p => '[Website ' + p.kind + ': ' + p.name + ']\n' + p.context);
+      const context = [...custom, base.extendInstructions('')].filter(Boolean).join('\n\n').slice(0,16000);
+      return [instructions, context].filter(Boolean).join('\n\n');
+    }
+  });
+}
+async function loadRegistry(url, { fetcher = fetch, storage, timeout = 4000, credentials = 'omit' } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
-    const response = await fetcher(url, { signal: controller.signal, credentials: 'omit', redirect: 'error', cache: 'no-store' });
+    const response = await fetcher(url, { signal: controller.signal, credentials, redirect: 'error', cache: 'no-store' });
     if (!response.ok) throw new Error('Plugin registry unavailable');
     if (!/application\/json/i.test(response.headers.get('content-type') || '')) throw new Error('Plugin registry must be JSON');
     const reader = response.body.getReader();
@@ -198,10 +279,16 @@ const packagedRegistry = {
     try { storage = window.localStorage; } catch { /* Try IndexedDB below. */ }
     try { database = window.indexedDB; } catch { /* Memory fallback. */ }
     storage = await runtime.createPreferenceStorage({ storage, indexedDB: database });
+    let manager;
     if (!/^https?:$/.test(window.location.protocol)) {
-      return runtime.createManager(runtime.parseRegistry(packagedRegistry), storage);
+      manager = runtime.createManager(runtime.parseRegistry(packagedRegistry), storage);
+    } else {
+      const url = new URL('registry.json', base);
+      try {
+        manager = await runtime.loadRegistry(url.href, { storage, credentials: url.origin === location.origin ? 'same-origin' : 'omit' });
+      } catch { manager = runtime.createManager([], storage); }
     }
-    return runtime.loadRegistry(new URL('registry.json', base).href, { storage });
+    return withUserPlugins(manager, storage);
   }).catch(() => fallback).then(manager => {
     window.GFDPlugins = manager;
     window.dispatchEvent(new CustomEvent('gfd:plugins-ready'));
@@ -213,7 +300,7 @@ const packagedRegistry = {
       document.addEventListener('DOMContentLoaded', () => mount(manager), { once: true });
       return;
     }
-    if (document.getElementById('gfd-plugin-controls')) return;
+    if (document.querySelector('[data-gfd-generation-settings]') || document.getElementById('gfd-plugin-controls')) return;
     // A separate shadow root survives the existing app's repeated innerHTML renders.
     const host = document.createElement('aside');
     host.id = 'gfd-plugin-controls';

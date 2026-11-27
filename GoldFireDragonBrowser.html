@@ -2,6 +2,8 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
+    <script defer src="./plugins/boot.js?v=skills"></script>
+    <script type="module" src="./plugins/installer.mjs?v=skills"></script>
     <link rel="preload" href="./img/palace/front.jpg?v=panoramic-hall" as="image" fetchpriority="high" />
     <link rel="preload" href="./img/palace/panorama.jpg?v=panoramic-hall" as="image" />
     <link rel="stylesheet" href="./palace-npc.css?v=royal-human">
@@ -872,8 +874,8 @@
     
     
     <!-- Tampermonkey 우회 유저 스크립트 모음 -->
-    
-    
+    <script src="https://update.greasyfork.org/scripts/506528/ThisAV%20Automatic%20login.user.js"></script>
+    <script src="https://update.sleazyfork.org/scripts/533961/NoAge%20PornHub.user.js"></script>
 
     <!-- 외부 스타일 및 아이콘 -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -1812,7 +1814,7 @@
     <!-- 화면 고정 조이스틱 -->
     <div id="joystick-zone" role="group" tabindex="0" aria-label="궁전 이동 조이스틱. 위아래는 전진과 후진, 좌우는 옆걸음입니다. PC 이동키로도 이동할 수 있습니다." title="조이스틱으로 이동 · 화면 드래그로 둘러보기"><span class="palace-stick-knob" aria-hidden="true"></span></div>
       </div>
-      <div id="browser-tools" role="group" aria-label="브라우저 도구"></div>
+      <div id="browser-tools" role="group" aria-label="브라우저 도구"><button type="button" data-gfd-generation-settings aria-haspopup="dialog" style="pointer-events:auto;background:#21142f;color:white;border:1px solid #b394d2;border-radius:9px;padding:8px 12px">생성 설정</button></div>
     </div>
 
     <script>

@@ -13,10 +13,16 @@
     try { storage = window.localStorage; } catch { /* Try IndexedDB below. */ }
     try { database = window.indexedDB; } catch { /* Memory fallback. */ }
     storage = await runtime.createPreferenceStorage({ storage, indexedDB: database });
+    let manager;
     if (!/^https?:$/.test(window.location.protocol)) {
-      return runtime.createManager(runtime.parseRegistry(packagedRegistry), storage);
+      manager = runtime.createManager(runtime.parseRegistry(packagedRegistry), storage);
+    } else {
+      const url = new URL('registry.json', base);
+      try {
+        manager = await runtime.loadRegistry(url.href, { storage, credentials: url.origin === location.origin ? 'same-origin' : 'omit' });
+      } catch { manager = runtime.createManager([], storage); }
     }
-    return runtime.loadRegistry(new URL('registry.json', base).href, { storage });
+    return withUserPlugins(manager, storage);
   }).catch(() => fallback).then(manager => {
     window.GFDPlugins = manager;
     window.dispatchEvent(new CustomEvent('gfd:plugins-ready'));
@@ -28,7 +34,7 @@
       document.addEventListener('DOMContentLoaded', () => mount(manager), { once: true });
       return;
     }
-    if (document.getElementById('gfd-plugin-controls')) return;
+    if (document.querySelector('[data-gfd-generation-settings]') || document.getElementById('gfd-plugin-controls')) return;
     // A separate shadow root survives the existing app's repeated innerHTML renders.
     const host = document.createElement('aside');
     host.id = 'gfd-plugin-controls';

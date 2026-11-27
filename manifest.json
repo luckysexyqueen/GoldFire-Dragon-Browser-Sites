@@ -9,13 +9,13 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/icon.png",
+      "src": "./icon.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon.png",
+      "src": "./icon.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
@@ -31,10 +31,10 @@
       "name": "새 채팅",
       "short_name": "새 채팅",
       "description": "새로운 대화 시작",
-      "url": "/",
+      "url": "./",
       "icons": [
         {
-          "src": "/icon.png",
+          "src": "./icon.png",
           "sizes": "192x192"
         }
       ]
